@@ -17,12 +17,10 @@ func prepareUrl(t string, n string, v string) string {
 	return defaultHost + defaultPort + "/update/" + t + "/" + n + "/" + v
 }
 
-func sendGaugeMetric(mType string, mName string, mValue string) {
+func sendMetric(url string, mType string, mName string, mValue string) {
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
-	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>;
-	url := prepareUrl(mType, mName, mValue)
 	resp, errPost := client.Post(url, contentType, nil)
 	if errPost != nil {
 		panic(errPost)
@@ -37,5 +35,19 @@ func sendGaugeMetric(mType string, mName string, mValue string) {
 
 func main() {
 	// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
-	sendGaugeMetric("gauge", "Alloc", "32323")
+	ticker := time.NewTicker(2 * time.Second)
+	c := 0
+	for t := range ticker.C {
+		metricType := "gauge"
+		metricName := "Alloc"
+		metricValue := "11111"
+		url := prepareUrl(metricType, metricName, metricValue)
+		sendMetric(url, metricType, metricName, metricValue)
+		fmt.Println(t)
+		c++
+		if c >= 10 {
+			ticker.Stop()
+			return
+		}
+	}
 }
