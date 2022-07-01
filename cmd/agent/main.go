@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -17,7 +21,8 @@ func prepareURL(t string, n string, v string) string {
 	return defaultHost + defaultPort + "/update/" + t + "/" + n + "/" + v
 }
 
-func sendMetric(url string, mType string, mName string, mValue string) {
+func sendMetric(mType string, mName string, mValue string) {
+	url := prepareURL(mType, mName, mValue)
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
@@ -30,24 +35,35 @@ func sendMetric(url string, mType string, mName string, mValue string) {
 	if errRespBody != nil {
 		panic(errRespBody)
 	}
-	fmt.Println(string(r))
+	fmt.Println("Sent! Server said:", string(r))
 }
 
 func main() {
-	// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
-	ticker := time.NewTicker(2 * time.Second)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stop()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
 	c := 0
-	for t := range ticker.C {
-		metricType := "gauge"
-		metricName := "Alloc"
-		metricValue := "11111"
-		url := prepareURL(metricType, metricName, metricValue)
-		sendMetric(url, metricType, metricName, metricValue)
-		fmt.Println(t)
-		c++
-		if c >= 10 {
+
+	for {
+		select {
+		case t := <-ticker.C:
+			metricType := "gauge"
+			metricName := "Alloc"
+			metricValue := "11111"
+			sendMetric(metricType, metricName, metricValue)
+			fmt.Println(t.Second())
+			c++
+			if c >= 10 {
+				ticker.Stop()
+				return
+			}
+		case <-ctx.Done():
 			ticker.Stop()
-			return
+			// TODO: Stop all other things
+			stop()
+			fmt.Println("Signal received.")
+			os.Exit(0)
 		}
 	}
 }
