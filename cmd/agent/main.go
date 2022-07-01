@@ -13,7 +13,7 @@ const contentType = "Content-Type: text/plain"
 
 // Returns a URL to send a metric.
 // http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>;
-func prepareUrl(t string, n string, v string) string {
+func prepareURL(t string, n string, v string) string {
 	return defaultHost + defaultPort + "/update/" + t + "/" + n + "/" + v
 }
 
@@ -41,7 +41,7 @@ func main() {
 		metricType := "gauge"
 		metricName := "Alloc"
 		metricValue := "11111"
-		url := prepareUrl(metricType, metricName, metricValue)
+		url := prepareURL(metricType, metricName, metricValue)
 		sendMetric(url, metricType, metricName, metricValue)
 		fmt.Println(t)
 		c++
