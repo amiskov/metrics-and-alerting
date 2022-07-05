@@ -1,14 +1,8 @@
-package metric
+package metrics
 
 import (
-	"io"
-	"log"
 	"math/rand"
-	"net/http"
 	"runtime"
-	"strconv"
-	"sync"
-	"time"
 )
 
 type Gauge float64
@@ -59,58 +53,4 @@ func (m *Metrics) Update() {
 
 	m.PollCount++
 	m.RandomValue = Gauge(rand.Float64())
-}
-
-func (m Metrics) Send() {
-	var wg sync.WaitGroup
-
-	// Sending Runtime Metrics
-	for name, val := range m.RuntimeMetrics {
-		name := name
-		val := val
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			strVal := strconv.FormatFloat(float64(val), 'f', 2, 64)
-			sendMetric("gauge", name, strVal)
-		}()
-	}
-
-	// Sending PollCount
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		strVal := strconv.Itoa(int(m.PollCount))
-		sendMetric("counter", "PollCount", strVal)
-	}()
-
-	// Sending RandomValue
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		strVal := strconv.FormatFloat(float64(m.RandomValue), 'f', 2, 64)
-		sendMetric("gauge", "RandomValue", strVal)
-	}()
-
-	wg.Wait()
-}
-
-func sendMetric(mType string, mName string, mValue string) {
-	// Returns a URL to send a metric.
-	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>;
-	url := "http://localhost" + ":8080" + "/update/" + mType + "/" + mName + "/" + mValue
-	contentType := "Content-Type: text/plain"
-	client := http.Client{}
-	client.Timeout = 10 * time.Second
-	resp, errPost := client.Post(url, contentType, nil)
-	if errPost != nil {
-		panic(errPost)
-	}
-	r, errRespBody := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if errRespBody != nil {
-		panic(errRespBody)
-	}
-	log.Println("Sent! Server said:", string(r))
 }
