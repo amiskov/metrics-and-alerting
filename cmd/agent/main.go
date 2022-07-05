@@ -52,7 +52,7 @@ func main() {
 			elapsedFromStart := t.Sub(startTime).Round(time.Second)
 			if elapsedFromStart%reportInterval == 0 {
 				go func() {
-					// TODO: Should we use WaitGroup or something?
+					// TODO: Should we use WaitGroup here or something?
 					sender.SendMetrics(sendURL, m)
 				}()
 			}

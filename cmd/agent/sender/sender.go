@@ -1,7 +1,6 @@
 package sender
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -47,20 +46,14 @@ func SendMetrics(sendURL string, m metrics.Metrics) {
 }
 
 func sendMetric(sendURL string, mType string, mName string, mValue string) {
-	// Returns a URL to send a metric.
-	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>;
-	url := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
+	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
+	postURL := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
-	resp, errPost := client.Post(url, contentType, nil)
+	_, errPost := client.Post(postURL, contentType, nil)
 	if errPost != nil {
 		panic(errPost)
 	}
-	r, errRespBody := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if errRespBody != nil {
-		panic(errRespBody)
-	}
-	log.Println("Sent! Server said:", string(r))
+	log.Printf("Sent to `%s`.\n", postURL)
 }

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
 )
 
 var port string
@@ -18,9 +20,14 @@ func init() {
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		// Return 201 after saving
-		log.Println(req.URL.Path)
-		w.Write([]byte("Got it!" + req.URL.Path))
+		w.Header().Set("Content-Type", "text/plain")
+		if err := storage.SaveMetricFromURIPath(req.URL.Path); err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
 	})
+
 	log.Fatal(http.ListenAndServe(port, nil))
 }
