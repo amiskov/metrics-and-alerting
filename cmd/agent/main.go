@@ -14,11 +14,11 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/metrics"
 )
 
-func main() {
-	// OS signals
-	osSignalCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	defer stop()
+var sendURL string
+var pollInterval time.Duration
+var reportInterval time.Duration
 
+func init() {
 	// CLI options
 	sendProtocol := flag.String("protocol", "http", "server protocol")
 	sendHost := flag.String("host", "127.0.0.1", "server host")
@@ -27,12 +27,19 @@ func main() {
 	reportIntervalNumber := flag.Int("report", 10, "report interval in seconds")
 	flag.Parse()
 
-	var sendURL = *sendProtocol + "://" + *sendHost + ":" + strconv.Itoa(*sendPort)
+	sendURL = *sendProtocol + "://" + *sendHost + ":" + strconv.Itoa(*sendPort)
+
+	pollInterval = time.Duration(time.Duration(*pollIntervalNumber) * time.Second)
+	reportInterval = time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
+}
+
+func main() {
+	// OS signals
+	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stopBySyscall()
 
 	m := metrics.Metrics{}
 
-	pollInterval := time.Duration(time.Duration(*pollIntervalNumber) * time.Second)
-	reportInterval := time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
 	ticker := time.NewTicker(pollInterval)
 	startTime := time.Now()
 
@@ -52,7 +59,7 @@ func main() {
 		case <-osSignalCtx.Done():
 			ticker.Stop()
 			// TODO: Stop all other things
-			stop()
+			stopBySyscall()
 			os.Exit(0)
 		}
 	}
