@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -12,19 +14,29 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/metrics"
 )
 
-// TODO: Allow user to customize server URL e.g. with CLI flags.
-var sendUrl = "http://127.0.0.1:8080"
-
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	// OS signals
+	osSignalCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stop()
+
+	// CLI options
+	sendProtocol := flag.String("protocol", "http", "server protocol")
+	sendHost := flag.String("host", "127.0.0.1", "server host")
+	sendPort := flag.Int("port", 8080, "server port")
+	pollIntervalNumber := flag.Int("poll", 2, "poll interval in seconds")
+	reportIntervalNumber := flag.Int("report", 10, "report interval in seconds")
+	flag.Parse()
+
+	var sendURL = *sendProtocol + "://" + *sendHost + ":" + strconv.Itoa(*sendPort)
 
 	m := metrics.Metrics{}
 
-	pollInterval := time.Duration(2 * time.Second)
+	pollInterval := time.Duration(time.Duration(*pollIntervalNumber) * time.Second)
+	reportInterval := time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
 	ticker := time.NewTicker(pollInterval)
-	reportInterval := time.Duration(10 * time.Second)
 	startTime := time.Now()
+
+	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n", sendURL, pollInterval, reportInterval)
 
 	for {
 		select {
@@ -34,14 +46,13 @@ func main() {
 			if elapsedFromStart%reportInterval == 0 {
 				go func() {
 					// TODO: Should we use WaitGroup or something?
-					sender.SendMetrics(sendUrl, m)
+					sender.SendMetrics(sendURL, m)
 				}()
 			}
-		case <-ctx.Done():
+		case <-osSignalCtx.Done():
 			ticker.Stop()
 			// TODO: Stop all other things
 			stop()
-			log.Println("Signal received.")
 			os.Exit(0)
 		}
 	}

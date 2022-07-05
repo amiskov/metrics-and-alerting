@@ -11,7 +11,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/metrics"
 )
 
-func SendMetrics(sendUrl string, m metrics.Metrics) {
+func SendMetrics(sendURL string, m metrics.Metrics) {
 	var wg sync.WaitGroup
 
 	// Sending Runtime Metrics
@@ -23,7 +23,7 @@ func SendMetrics(sendUrl string, m metrics.Metrics) {
 		go func() {
 			defer wg.Done()
 			strVal := strconv.FormatFloat(float64(val), 'f', 2, 64)
-			sendMetric(sendUrl, "gauge", name, strVal)
+			sendMetric(sendURL, "gauge", name, strVal)
 		}()
 	}
 
@@ -32,7 +32,7 @@ func SendMetrics(sendUrl string, m metrics.Metrics) {
 	go func() {
 		defer wg.Done()
 		strVal := strconv.Itoa(int(m.PollCount))
-		sendMetric(sendUrl, "counter", "PollCount", strVal)
+		sendMetric(sendURL, "counter", "PollCount", strVal)
 	}()
 
 	// Sending RandomValue
@@ -40,16 +40,16 @@ func SendMetrics(sendUrl string, m metrics.Metrics) {
 	go func() {
 		defer wg.Done()
 		strVal := strconv.FormatFloat(float64(m.RandomValue), 'f', 2, 64)
-		sendMetric(sendUrl, "gauge", "RandomValue", strVal)
+		sendMetric(sendURL, "gauge", "RandomValue", strVal)
 	}()
 
 	wg.Wait()
 }
 
-func sendMetric(sendUrl string, mType string, mName string, mValue string) {
+func sendMetric(sendURL string, mType string, mName string, mValue string) {
 	// Returns a URL to send a metric.
 	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>;
-	url := sendUrl + "/update/" + mType + "/" + mName + "/" + mValue
+	url := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
