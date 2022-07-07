@@ -15,9 +15,13 @@ func SaveMetricFromURIPath(path string) error {
 	path = strings.TrimPrefix(path, "/update/")
 	URIParts := strings.Split(path, "/")
 
-	var metricType string = URIParts[0]
-	var metricName string = URIParts[1]
-	var metricValue string = URIParts[2]
+	if len(URIParts) < 3 || len(URIParts) > 3 {
+		return errors.New("bad metric")
+	}
+
+	metricType := URIParts[0]
+	metricName := URIParts[1]
+	metricValue := URIParts[2]
 
 	switch metricType {
 	case "gauge":

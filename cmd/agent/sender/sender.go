@@ -51,10 +51,11 @@ func sendMetric(sendURL string, mType string, mName string, mValue string) {
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
-	_, errPost := client.Post(postURL, contentType, nil)
+	resp, errPost := client.Post(postURL, contentType, nil)
 	if errPost != nil {
 		log.Println(errPost)
 		return
 	}
+	defer resp.Body.Close()
 	log.Printf("Sent to `%s`.\n", postURL)
 }
