@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -19,6 +20,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	http.HandleFunc("/update/", handlers.UpdateHandler)
-	log.Fatal(http.ListenAndServe(port, nil))
+	mux := handlers.CreateMux()
+	fmt.Printf("Server has been started at %s\n", port)
+	log.Fatal(http.ListenAndServe(port, mux))
 }
