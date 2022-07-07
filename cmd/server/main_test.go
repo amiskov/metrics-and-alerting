@@ -21,7 +21,7 @@ func TestUpdateMetric(t *testing.T) {
 		// Gauge Metrics
 		{
 			name: "test gauge success",
-			path: "gauge/Mallocs/123.00",
+			path: "/update/gauge/Mallocs/123.00",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
@@ -29,7 +29,7 @@ func TestUpdateMetric(t *testing.T) {
 		},
 		{
 			name: "test counter success",
-			path: "counter/PollCount/123",
+			path: "/update/counter/PollCount/123",
 			want: want{
 				code:        http.StatusOK,
 				contentType: "text/plain",
@@ -37,7 +37,7 @@ func TestUpdateMetric(t *testing.T) {
 		},
 		{
 			name: "test error metric not provided",
-			path: "gauge/",
+			path: "/update/gauge/",
 			want: want{
 				code:        http.StatusNotFound,
 				contentType: "text/plain",
@@ -45,7 +45,7 @@ func TestUpdateMetric(t *testing.T) {
 		},
 		{
 			name: "test error wrong value type",
-			path: "counter/PollCount/0.003",
+			path: "/update/counter/PollCount/0.003",
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "text/plain",
@@ -53,16 +53,24 @@ func TestUpdateMetric(t *testing.T) {
 		},
 		{
 			name: "test undefined metric error",
-			path: "undefined_metric/must_fail/123",
+			path: "/update/undefined_metric/must_fail/123",
 			want: want{
 				code:        http.StatusNotImplemented,
+				contentType: "text/plain",
+			},
+		},
+		{
+			name: "test not existing route",
+			path: "/updateme/counter/test/123",
+			want: want{
+				code:        http.StatusNotFound,
 				contentType: "text/plain",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/update/"+tt.path, nil)
+			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
 			mux := handlers.CreateMux()

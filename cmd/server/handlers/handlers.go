@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,15 +12,14 @@ import (
 
 func CreateMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/update/gauge/", UpdateMetricHandler)
-	mux.HandleFunc("/update/counter/", UpdateMetricHandler)
+	mux.HandleFunc("/update/", UpdateMetricHandler)
 	mux.HandleFunc("/", RootHandler)
 	return mux
 }
 
 func RootHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
-	rw.WriteHeader(http.StatusNotImplemented)
+	rw.WriteHeader(http.StatusNotFound)
 }
 
 var ErrorUnknownMetric = errors.New("unknown metric")
@@ -68,8 +66,6 @@ func ParsePath(path string) (storage.MetricData, error) {
 func UpdateMetricHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	metricData, err := ParsePath(r.URL.Path)
-
-	fmt.Printf("%#v\n", err)
 
 	switch err {
 	case ErrorUnknownMetric:
