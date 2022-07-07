@@ -53,7 +53,8 @@ func sendMetric(sendURL string, mType string, mName string, mValue string) {
 	client.Timeout = 10 * time.Second
 	_, errPost := client.Post(postURL, contentType, nil)
 	if errPost != nil {
-		panic(errPost)
+		log.Println(errPost)
+		return
 	}
 	log.Printf("Sent to `%s`.\n", postURL)
 }
