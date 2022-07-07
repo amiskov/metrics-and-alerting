@@ -18,8 +18,9 @@ func TestUpdateMetric(t *testing.T) {
 		path string
 		want want
 	}{
+		// Gauge Metrics
 		{
-			name: "test gauge metric success",
+			name: "test gauge success",
 			path: "gauge/Mallocs/123.00",
 			want: want{
 				code:        200,
@@ -27,10 +28,34 @@ func TestUpdateMetric(t *testing.T) {
 			},
 		},
 		{
-			name: "test counter metric success",
+			name: "test counter success",
 			path: "counter/PollCount/123",
 			want: want{
 				code:        200,
+				contentType: "text/plain",
+			},
+		},
+		{
+			name: "test error metric not provided",
+			path: "gauge/",
+			want: want{
+				code:        400,
+				contentType: "text/plain",
+			},
+		},
+		{
+			name: "test error too many params in path",
+			path: "gauge/hello/0/gsom/test/3",
+			want: want{
+				code:        400,
+				contentType: "text/plain",
+			},
+		},
+		{
+			name: "test error wrong value type",
+			path: "counter/PollCount/0.003",
+			want: want{
+				code:        400,
 				contentType: "text/plain",
 			},
 		},
@@ -51,6 +76,7 @@ func TestUpdateMetric(t *testing.T) {
 			h := http.HandlerFunc(handlers.UpdateHandler)
 			h.ServeHTTP(w, request)
 			res := w.Result()
+			defer res.Body.Close()
 
 			if res.StatusCode != tt.want.code {
 				t.Errorf("Expected status code %d, got %d", tt.want.code, w.Code)
