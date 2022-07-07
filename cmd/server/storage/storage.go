@@ -9,14 +9,15 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/metrics"
 )
 
-var incomingMetrics map[string]interface{}
+var incomingMetrics = make(map[string]interface{})
 
 func SaveMetricFromURIPath(path string) error {
+	path = strings.TrimPrefix(path, "/update/")
 	URIParts := strings.Split(path, "/")
 
-	var metricType string = URIParts[2]
-	var metricName string = URIParts[3]
-	var metricValue string = URIParts[4]
+	var metricType string = URIParts[0]
+	var metricName string = URIParts[1]
+	var metricValue string = URIParts[2]
 
 	switch metricType {
 	case "gauge":
