@@ -12,7 +12,16 @@ func UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if err := storage.SaveMetricFromURIPath(r.URL.Path); err != nil {
 		log.Println(err)
-		rw.WriteHeader(http.StatusBadRequest)
+		switch err {
+		case storage.ErrorWrongRequestFormat:
+			rw.WriteHeader(http.StatusNotImplemented)
+		case storage.ErrorWrongMetricType:
+			rw.WriteHeader(http.StatusNotImplemented)
+		case storage.ErrorWrongMetricValue:
+			rw.WriteHeader(http.StatusNotImplemented)
+		default:
+			rw.WriteHeader(http.StatusNotFound)
+		}
 	} else {
 		rw.WriteHeader(http.StatusOK)
 	}

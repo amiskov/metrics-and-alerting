@@ -31,7 +31,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test counter success",
 			path: "counter/PollCount/123",
 			want: want{
-				code:        200,
+				code:        http.StatusOK,
 				contentType: "text/plain",
 			},
 		},
@@ -39,7 +39,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test error metric not provided",
 			path: "gauge/",
 			want: want{
-				code:        400,
+				code:        http.StatusNotImplemented,
 				contentType: "text/plain",
 			},
 		},
@@ -47,7 +47,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test error too many params in path",
 			path: "gauge/hello/0/gsom/test/3",
 			want: want{
-				code:        400,
+				code:        http.StatusNotImplemented,
 				contentType: "text/plain",
 			},
 		},
@@ -55,7 +55,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test error wrong value type",
 			path: "counter/PollCount/0.003",
 			want: want{
-				code:        400,
+				code:        http.StatusNotImplemented,
 				contentType: "text/plain",
 			},
 		},
@@ -63,7 +63,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test undefined metric error",
 			path: "undefined_metric/must_fail/123",
 			want: want{
-				code:        400,
+				code:        http.StatusNotImplemented,
 				contentType: "text/plain",
 			},
 		},
