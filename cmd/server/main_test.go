@@ -39,15 +39,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test error metric not provided",
 			path: "gauge/",
 			want: want{
-				code:        http.StatusNotImplemented,
-				contentType: "text/plain",
-			},
-		},
-		{
-			name: "test error too many params in path",
-			path: "gauge/hello/0/gsom/test/3",
-			want: want{
-				code:        http.StatusNotImplemented,
+				code:        http.StatusNotFound,
 				contentType: "text/plain",
 			},
 		},
@@ -55,7 +47,7 @@ func TestUpdateMetric(t *testing.T) {
 			name: "test error wrong value type",
 			path: "counter/PollCount/0.003",
 			want: want{
-				code:        http.StatusNotImplemented,
+				code:        http.StatusBadRequest,
 				contentType: "text/plain",
 			},
 		},
@@ -73,8 +65,9 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/update/"+tt.path, nil)
 
 			w := httptest.NewRecorder()
-			h := http.HandlerFunc(handlers.UpdateHandler)
-			h.ServeHTTP(w, request)
+			mux := handlers.CreateMux()
+			mux.ServeHTTP(w, request)
+
 			res := w.Result()
 			defer res.Body.Close()
 
