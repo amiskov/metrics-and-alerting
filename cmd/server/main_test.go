@@ -1,6 +1,8 @@
 package main_test
 
 import (
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -73,11 +75,16 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			router := router.NewRouter()
-			router.ServeHTTP(w, request)
+			r := router.NewRouter()
+			r.ServeHTTP(w, request)
 
 			res := w.Result()
-			defer res.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					log.Println("Error while closing body")
+				}
+			}(res.Body)
 
 			if res.StatusCode != tt.want.code {
 				t.Errorf("Expected status code %d, got %d", tt.want.code, w.Code)

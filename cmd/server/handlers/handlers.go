@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -9,11 +8,6 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/metrics"
 	"github.com/go-chi/chi"
 )
-
-var ErrorUnknownMetric = errors.New("unknown metric")
-var ErrorMetricNameNotProvided = errors.New("metric name is not provided")
-var ErrorMetricValueNotProvided = errors.New("metric value is not provided")
-var ErrorMetricBadValue = errors.New("bad metric value format")
 
 func UpdateMetricHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")

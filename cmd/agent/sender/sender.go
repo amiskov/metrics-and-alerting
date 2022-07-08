@@ -1,6 +1,7 @@
 package sender
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -52,6 +53,11 @@ func sendMetric(sendURL string, mType string, mName string, mValue string) {
 		log.Println(errPost)
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Println("Error while closing body.")
+		}
+	}(resp.Body)
 	log.Printf("Sent to `%s`.\n", postURL)
 }

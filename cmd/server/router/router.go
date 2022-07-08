@@ -41,11 +41,17 @@ func NewRouter() chi.Router {
 			metricValue, err := storage.GetMetric(metricType, metricName)
 			if err != nil {
 				rw.WriteHeader(http.StatusNotFound)
-				rw.Write([]byte(err.Error()))
+				_, err := rw.Write([]byte(err.Error()))
+				if err != nil {
+					log.Println("Error writing body")
+				}
 				return
 			}
 			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte(metricValue))
+			_, errWriteHeader := rw.Write([]byte(metricValue))
+			if errWriteHeader != nil {
+				log.Println("Error writing body.")
+			}
 		})
 	})
 
@@ -53,7 +59,7 @@ func NewRouter() chi.Router {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
 
-			tmpl.Execute(w,
+			err := tmpl.Execute(w,
 				struct {
 					GaugeMetrics   []string
 					CounterMetrics []string
@@ -61,6 +67,9 @@ func NewRouter() chi.Router {
 					storage.GetGaugeMetrics(),
 					storage.GetCounterMetrics(),
 				})
+			if err != nil {
+				log.Println("error while executing the template")
+			}
 		})
 		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
