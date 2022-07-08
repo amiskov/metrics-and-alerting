@@ -1,7 +1,6 @@
 package router
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,29 +14,23 @@ import (
 func NewRouter() chi.Router {
 	r := chi.NewRouter()
 	wd, err := os.Getwd()
-	fmt.Println(wd)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	tmpl := template.Must(template.ParseFiles(wd + "/templates/index.html"))
 
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
-
-			tmpl.Execute(w,
-				struct {
-					GaugeMetrics   []string
-					CounterMetrics []string
-				}{
-					storage.GetGaugeMetrics(),
-					storage.GetCounterMetrics(),
-				})
-		})
-	})
-
 	r.Route("/update", func(r chi.Router) {
+		r.Post("/{metricType}/", func(rw http.ResponseWriter, r *http.Request) {
+			rw.Header().Set("Content-Type", "text/plain")
+			rw.WriteHeader(http.StatusNotFound)
+		})
+
+		r.Post("/{metricType}/{metricName}/", func(rw http.ResponseWriter, r *http.Request) {
+			rw.Header().Set("Content-Type", "text/plain")
+			rw.WriteHeader(http.StatusNotImplemented)
+		})
+
 		r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
 	})
 
@@ -53,6 +46,25 @@ func NewRouter() chi.Router {
 			}
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(metricValue))
+		})
+	})
+
+	r.Route("/", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+
+			tmpl.Execute(w,
+				struct {
+					GaugeMetrics   []string
+					CounterMetrics []string
+				}{
+					storage.GetGaugeMetrics(),
+					storage.GetCounterMetrics(),
+				})
+		})
+		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
+			rw.Header().Set("Content-Type", "text/plain")
+			rw.WriteHeader(http.StatusNotFound)
 		})
 	})
 

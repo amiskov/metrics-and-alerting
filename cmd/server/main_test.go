@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/handlers"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/router"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -73,8 +73,8 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			mux := handlers.CreateMux()
-			mux.ServeHTTP(w, request)
+			router := router.NewRouter()
+			router.ServeHTTP(w, request)
 
 			res := w.Result()
 			defer res.Body.Close()
