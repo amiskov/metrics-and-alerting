@@ -1,7 +1,6 @@
 package sender
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -43,7 +42,6 @@ func SendMetrics(sendURL string, m metrics.Metrics) {
 }
 
 func sendMetric(sendURL string, mType string, mName string, mValue string) {
-	// http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 	postURL := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
@@ -53,11 +51,6 @@ func sendMetric(sendURL string, mType string, mName string, mValue string) {
 		log.Println(errPost)
 		return
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Println("Error while closing body.")
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
 	log.Printf("Sent to `%s`.\n", postURL)
 }
