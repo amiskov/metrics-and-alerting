@@ -21,6 +21,7 @@ func init() {
 func main() {
 	flag.Parse()
 	mux := handlers.CreateMux()
+	fmt.Println("Just triggering the GH action.")
 	fmt.Printf("Server has been started at %s\n", port)
 	log.Fatal(http.ListenAndServe(port, mux))
 }
