@@ -1,24 +1,28 @@
 package router
 
 import (
-	"log"
-	"net/http"
-	"os"
-	"text/template"
-
 	"github.com/amiskov/metrics-and-alerting/cmd/server/handlers"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"log"
+	"net/http"
 )
 
 func NewRouter() chi.Router {
 	r := chi.NewRouter()
-	wd, err := os.Getwd()
 
-	if err != nil {
-		log.Fatal(err)
-	}
-	tmpl := template.Must(template.ParseFiles(wd + "/templates/index.html"))
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	//wd, err := os.Getwd()
+	//
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//tmpl := template.Must(template.ParseFiles(wd + "/templates/index.html"))
 
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/{metricType}/", func(rw http.ResponseWriter, r *http.Request) {
@@ -58,18 +62,19 @@ func NewRouter() chi.Router {
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte("List goes here"))
 
-			err := tmpl.Execute(w,
-				struct {
-					GaugeMetrics   []string
-					CounterMetrics []string
-				}{
-					storage.GetGaugeMetrics(),
-					storage.GetCounterMetrics(),
-				})
-			if err != nil {
-				log.Println("error while executing the template")
-			}
+			//err := tmpl.Execute(w,
+			//	struct {
+			//		GaugeMetrics   []string
+			//		CounterMetrics []string
+			//	}{
+			//		storage.GetGaugeMetrics(),
+			//		storage.GetCounterMetrics(),
+			//	})
+			//if err != nil {
+			//	log.Println("error while executing the template")
+			//}
 		})
 		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
