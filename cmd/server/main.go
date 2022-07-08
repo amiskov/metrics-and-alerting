@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/handlers"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/router"
 )
 
 var port string
@@ -20,7 +20,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	mux := handlers.CreateMux()
+	router := router.NewRouter()
 	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, mux))
+	log.Fatal(http.ListenAndServe(port, router))
 }

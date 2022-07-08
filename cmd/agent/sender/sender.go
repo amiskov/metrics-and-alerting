@@ -3,7 +3,6 @@ package sender
 import (
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -21,8 +20,7 @@ func SendMetrics(sendURL string, m metrics.Metrics) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			strVal := strconv.FormatFloat(float64(val), 'f', 2, 64)
-			sendMetric(sendURL, "gauge", name, strVal)
+			sendMetric(sendURL, "gauge", name, val.String())
 		}()
 	}
 
@@ -30,16 +28,14 @@ func SendMetrics(sendURL string, m metrics.Metrics) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		strVal := strconv.Itoa(int(m.PollCount))
-		sendMetric(sendURL, "counter", "PollCount", strVal)
+		sendMetric(sendURL, "counter", "PollCount", m.PollCount.String())
 	}()
 
 	// Sending RandomValue
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		strVal := strconv.FormatFloat(float64(m.RandomValue), 'f', 2, 64)
-		sendMetric(sendURL, "gauge", "RandomValue", strVal)
+		sendMetric(sendURL, "gauge", "RandomValue", m.RandomValue.String())
 	}()
 
 	wg.Wait()
