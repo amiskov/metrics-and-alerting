@@ -34,7 +34,7 @@ func (s *store) UpdateMetric(m models.MetricRaw) error {
 		if err != nil {
 			return sm.ErrorBadMetricFormat
 		}
-		s.CounterMetrics[m.Name] = models.Counter(numVal)
+		s.CounterMetrics[m.Name] += models.Counter(numVal)
 	case "gauge":
 		numVal, err := strconv.ParseFloat(m.Value, 64)
 		if err != nil {
@@ -48,25 +48,33 @@ func (s *store) UpdateMetric(m models.MetricRaw) error {
 	return nil
 }
 
-func (s store) GetGaugeMetrics() []string {
+func (s store) GetGaugeMetrics() []models.MetricRaw {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	res := []string{}
+	res := []models.MetricRaw{}
 
-	for _, gm := range s.GaugeMetrics {
-		res = append(res, gm.String())
+	for name, val := range s.GaugeMetrics {
+		res = append(res, models.MetricRaw{
+			Type:  "gauge",
+			Name:  name,
+			Value: val.String(),
+		})
 	}
 	return res
 }
 
-func (s store) GetCounterMetrics() []string {
+func (s store) GetCounterMetrics() []models.MetricRaw {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	res := []string{}
-	for _, cm := range s.CounterMetrics {
-		res = append(res, cm.String())
+	res := []models.MetricRaw{}
+	for name, val := range s.CounterMetrics {
+		res = append(res, models.MetricRaw{
+			Type:  "counter",
+			Name:  name,
+			Value: val.String(),
+		})
 	}
 	return res
 }

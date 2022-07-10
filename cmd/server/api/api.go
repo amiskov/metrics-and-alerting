@@ -14,8 +14,8 @@ import (
 type Storage interface {
 	UpdateMetric(models.MetricRaw) error
 	GetMetric(string, string) (string, error)
-	GetGaugeMetrics() []string
-	GetCounterMetrics() []string
+	GetGaugeMetrics() []models.MetricRaw
+	GetCounterMetrics() []models.MetricRaw
 }
 
 func NewRouter(s Storage) chi.Router {
@@ -28,17 +28,17 @@ func NewRouter(s Storage) chi.Router {
 
 	tmpl, err := template.New("index").Parse(`<h1>Metrics Service</h1>
 		<h2>Gauge Metrics</h2>
-		<ul>
-		{{range $val := .GaugeMetrics}}
-			 <li>{{$val}}</li>
+		<table>
+		{{range $m := .GaugeMetrics}}
+			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
 		{{end}}
-		</ul>
+		</table>
 		<h2>Counter Metrics</h2>
-		<ul>
-		{{range $val := .CounterMetrics}}
-			 <li>{{$val}}</li>
+		<table>
+		{{range $m := .CounterMetrics}}
+			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
 		{{end}}
-		</ul>`)
+		</table>`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,8 +103,8 @@ func NewRouter(s Storage) chi.Router {
 
 			err := tmpl.Execute(rw,
 				struct {
-					GaugeMetrics   []string
-					CounterMetrics []string
+					GaugeMetrics   []models.MetricRaw
+					CounterMetrics []models.MetricRaw
 				}{
 					s.GetGaugeMetrics(),
 					s.GetCounterMetrics(),
