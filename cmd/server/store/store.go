@@ -52,7 +52,7 @@ func (s store) GetGaugeMetrics() []models.MetricRaw {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	res := []models.MetricRaw{}
+	var res []models.MetricRaw
 
 	for name, val := range s.GaugeMetrics {
 		res = append(res, models.MetricRaw{
@@ -68,7 +68,7 @@ func (s store) GetCounterMetrics() []models.MetricRaw {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	res := []models.MetricRaw{}
+	var res []models.MetricRaw
 	for name, val := range s.CounterMetrics {
 		res = append(res, models.MetricRaw{
 			Type:  "counter",

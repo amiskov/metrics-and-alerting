@@ -74,8 +74,8 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			store := store.NewServerStore()
-			r := api.NewRouter(store)
+			s := store.NewServerStore()
+			r := api.NewRouter(s)
 			r.ServeHTTP(w, request)
 
 			res := w.Result()

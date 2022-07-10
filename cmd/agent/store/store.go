@@ -67,7 +67,7 @@ func (m *metrics) GetAll() []models.MetricRaw {
 	m.mx.RLock()
 	defer m.mx.RUnlock()
 
-	res := []models.MetricRaw{}
+	var res []models.MetricRaw
 
 	// Get Runtime Metrics
 	for name, val := range m.RuntimeMetrics {
