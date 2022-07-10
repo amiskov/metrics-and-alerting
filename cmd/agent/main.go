@@ -1,14 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
-	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
@@ -35,41 +31,26 @@ func init() {
 }
 
 func main() {
-	// OS signals
-	osSignalCtx, stopBySyscall := signal.NotifyContext(
-		context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	defer stopBySyscall()
+	var wg sync.WaitGroup
 
 	s := service.New()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.Run(pollInterval)
+	}()
+
 	a := api.New(s)
 
-	ticker := time.NewTicker(pollInterval)
-	startTime := time.Now()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.Run(reportInterval, serverURL)
+	}()
+
+	wg.Wait()
 
 	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n",
 		serverURL, pollInterval, reportInterval)
-
-	var wg sync.WaitGroup
-
-	for {
-		select {
-		case t := <-ticker.C:
-			s.UpdateAll()
-			elapsedFromStart := t.Sub(startTime).Round(time.Second)
-			if elapsedFromStart%reportInterval == 0 {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					a.SendMetrics(serverURL)
-				}()
-			}
-		case <-osSignalCtx.Done():
-			ticker.Stop()
-			// TODO: What else should we stop after receiving the terminating OS signal?
-			stopBySyscall()
-			os.Exit(0)
-		}
-
-		wg.Wait()
-	}
 }

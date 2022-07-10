@@ -21,6 +21,13 @@ func New(s Service) *api {
 	return &api{service: s}
 }
 
+func (a *api) Run(reportInterval time.Duration, serverURL string) {
+	ticker := time.NewTicker(reportInterval)
+	for range ticker.C {
+		a.SendMetrics(serverURL)
+	}
+}
+
 func (api *api) SendMetrics(sendURL string) {
 	var wg sync.WaitGroup
 

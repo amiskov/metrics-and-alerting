@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
@@ -15,6 +16,13 @@ type service struct {
 	runtimeMetrics map[string]models.Gauge
 	pollCount      models.Counter
 	randomValue    models.Gauge
+}
+
+func (s *service) Run(pollInterval time.Duration) {
+	ticker := time.NewTicker(pollInterval)
+	for range ticker.C {
+		s.UpdateAll()
+	}
 }
 
 func New() *service {
