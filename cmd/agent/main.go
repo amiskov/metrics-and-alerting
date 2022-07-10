@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/store"
+	"github.com/amiskov/metrics-and-alerting/cmd/agent/service"
 )
 
 var serverURL string
@@ -40,7 +40,8 @@ func main() {
 		context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stopBySyscall()
 
-	metricsStore := store.NewMetricsStore()
+	s := service.New()
+	a := api.New(s)
 
 	ticker := time.NewTicker(pollInterval)
 	startTime := time.Now()
@@ -53,13 +54,13 @@ func main() {
 	for {
 		select {
 		case t := <-ticker.C:
-			metricsStore.UpdateAll()
+			s.UpdateAll()
 			elapsedFromStart := t.Sub(startTime).Round(time.Second)
 			if elapsedFromStart%reportInterval == 0 {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					api.SendMetrics(serverURL, metricsStore.GetAll())
+					a.SendMetrics(serverURL)
 				}()
 			}
 		case <-osSignalCtx.Done():

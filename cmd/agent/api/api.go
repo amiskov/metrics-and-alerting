@@ -9,15 +9,22 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-type Storage interface {
-	UpdateAll()
-	GetAll() []models.MetricRaw
+type Service interface {
+	GetAllMetrics() []models.MetricRaw
 }
 
-func SendMetrics(sendURL string, metrics []models.MetricRaw) {
+type api struct {
+	service Service
+}
+
+func New(s Service) *api {
+	return &api{service: s}
+}
+
+func (api *api) SendMetrics(sendURL string) {
 	var wg sync.WaitGroup
 
-	for _, m := range metrics {
+	for _, m := range api.service.GetAllMetrics() {
 		m := m
 		wg.Add(1)
 		go func() {
