@@ -4,14 +4,22 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/api/handlers"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
+	sm "github.com/amiskov/metrics-and-alerting/cmd/server/model"
+	"github.com/amiskov/metrics-and-alerting/internal/model"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
-func NewRouter() chi.Router {
+type Store interface {
+	UpdateMetrics(metricData sm.MetricData)
+	GetMetric(metricType string, metricName string) (string, error)
+	GetGaugeMetrics() []string
+	GetCounterMetrics() []string
+}
+
+func NewRouter(s Store) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -47,14 +55,47 @@ func NewRouter() chi.Router {
 			rw.WriteHeader(http.StatusNotImplemented)
 		})
 
-		r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
+		r.Post("/{metricType}/{metricName}/{metricValue}", func(rw http.ResponseWriter, r *http.Request) {
+			rw.Header().Set("Content-Type", "text/plain")
+
+			metricType := chi.URLParam(r, "metricType")
+			metricName := chi.URLParam(r, "metricName")
+			metricValue := chi.URLParam(r, "metricValue")
+
+			metricData := sm.MetricData{
+				MetricName: metricName,
+			}
+
+			switch metricType {
+			case "counter":
+				numVal, err := strconv.ParseInt(metricValue, 10, 64)
+				if err != nil {
+					rw.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				metricData.MetricValue = model.Counter(numVal)
+			case "gauge":
+				numVal, err := strconv.ParseFloat(metricValue, 64)
+				if err != nil {
+					rw.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				metricData.MetricValue = model.Gauge(numVal)
+			default:
+				rw.WriteHeader(http.StatusNotImplemented)
+				return
+			}
+
+			s.UpdateMetrics(metricData)
+			rw.WriteHeader(http.StatusOK)
+		})
 	})
 
 	r.Route("/value", func(r chi.Router) {
 		r.Get("/{metricType}/{metricName}", func(rw http.ResponseWriter, r *http.Request) {
 			metricType := chi.URLParam(r, "metricType")
 			metricName := chi.URLParam(r, "metricName")
-			metricValue, err := storage.GetMetric(metricType, metricName)
+			metricValue, err := s.GetMetric(metricType, metricName)
 			if err != nil {
 				rw.WriteHeader(http.StatusNotFound)
 				_, err := rw.Write([]byte(err.Error()))
@@ -80,8 +121,8 @@ func NewRouter() chi.Router {
 					GaugeMetrics   []string
 					CounterMetrics []string
 				}{
-					storage.GetGaugeMetrics(),
-					storage.GetCounterMetrics(),
+					s.GetGaugeMetrics(),
+					s.GetCounterMetrics(),
 				})
 			if err != nil {
 				log.Println("error while executing the template")

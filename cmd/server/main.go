@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api/router"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
 )
 
 var port string
@@ -20,7 +21,8 @@ func init() {
 
 func main() {
 	flag.Parse()
-	r := router.NewRouter()
+	store := storage.NewServerStore()
+	r := router.NewRouter(store)
 	fmt.Printf("Server has been started at %s\n", port)
 	log.Fatal(http.ListenAndServe(port, r))
 }
