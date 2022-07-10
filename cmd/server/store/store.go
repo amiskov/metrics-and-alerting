@@ -1,6 +1,7 @@
 package store
 
 import (
+	"sort"
 	"strconv"
 	"sync"
 
@@ -61,6 +62,11 @@ func (s store) GetGaugeMetrics() []models.MetricRaw {
 			Value: val.String(),
 		})
 	}
+
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
+
 	return res
 }
 
@@ -76,6 +82,11 @@ func (s store) GetCounterMetrics() []models.MetricRaw {
 			Value: val.String(),
 		})
 	}
+
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
+
 	return res
 }
 
