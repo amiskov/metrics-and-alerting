@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/router"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -74,8 +74,8 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			store := storage.NewServerStore()
-			r := router.NewRouter(store)
+			store := store.NewServerStore()
+			r := api.NewRouter(store)
 			r.ServeHTTP(w, request)
 
 			res := w.Result()

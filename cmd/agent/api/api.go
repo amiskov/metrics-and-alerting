@@ -6,23 +6,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/model"
+	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type Storage interface {
 	UpdateAll()
-	GetAll() []model.MetricRaw
+	GetAll() []models.MetricRaw
 }
 
-func SendMetrics(sendURL string, metrics []model.MetricRaw) {
+func SendMetrics(sendURL string, metrics []models.MetricRaw) {
 	var wg sync.WaitGroup
 
-	for _, metric := range metrics {
-		metric := metric
+	for _, m := range metrics {
+		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetric(sendURL, metric.Type, metric.Name, metric.Value)
+			sendMetric(sendURL, m.Type, m.Name, m.Value)
 		}()
 	}
 

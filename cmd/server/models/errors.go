@@ -1,11 +1,6 @@
-package model
+package models
 
 import "errors"
-
-type MetricData struct {
-	MetricName  string
-	MetricValue interface{}
-}
 
 var ErrorMetricNotFound = errors.New("metric not found")
 var ErrorBadMetricFormat = errors.New("bad metric format")

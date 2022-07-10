@@ -5,23 +5,23 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/amiskov/metrics-and-alerting/internal/model"
+	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type metrics struct {
 	mx       *sync.RWMutex
 	memStats *runtime.MemStats
 
-	RuntimeMetrics map[string]model.Gauge
-	PollCount      model.Counter
-	RandomValue    model.Gauge
+	RuntimeMetrics map[string]models.Gauge
+	PollCount      models.Counter
+	RandomValue    models.Gauge
 }
 
 func NewMetricsStore() *metrics {
 	return &metrics{
 		mx:             new(sync.RWMutex),
 		memStats:       new(runtime.MemStats),
-		RuntimeMetrics: make(map[string]model.Gauge),
+		RuntimeMetrics: make(map[string]models.Gauge),
 	}
 }
 
@@ -31,47 +31,47 @@ func (m *metrics) UpdateAll() {
 	m.mx.RLock()
 	defer m.mx.RUnlock()
 
-	m.RuntimeMetrics["Alloc"] = model.Gauge(m.memStats.Alloc)
-	m.RuntimeMetrics["BuckHashSys"] = model.Gauge(m.memStats.BuckHashSys)
-	m.RuntimeMetrics["Frees"] = model.Gauge(m.memStats.Frees)
-	m.RuntimeMetrics["GCCPUFraction"] = model.Gauge(m.memStats.GCCPUFraction)
-	m.RuntimeMetrics["GCSys"] = model.Gauge(m.memStats.GCSys)
-	m.RuntimeMetrics["HeapAlloc"] = model.Gauge(m.memStats.HeapAlloc)
-	m.RuntimeMetrics["HeapIdle"] = model.Gauge(m.memStats.HeapIdle)
-	m.RuntimeMetrics["HeapInuse"] = model.Gauge(m.memStats.HeapInuse)
-	m.RuntimeMetrics["HeapObjects"] = model.Gauge(m.memStats.HeapObjects)
-	m.RuntimeMetrics["HeapReleased"] = model.Gauge(m.memStats.HeapReleased)
-	m.RuntimeMetrics["HeapSys"] = model.Gauge(m.memStats.HeapSys)
-	m.RuntimeMetrics["LastGC"] = model.Gauge(m.memStats.LastGC)
-	m.RuntimeMetrics["Lookups"] = model.Gauge(m.memStats.Lookups)
-	m.RuntimeMetrics["MCacheInuse"] = model.Gauge(m.memStats.MCacheInuse)
-	m.RuntimeMetrics["MCacheSys"] = model.Gauge(m.memStats.MCacheSys)
-	m.RuntimeMetrics["MSpanInuse"] = model.Gauge(m.memStats.MSpanInuse)
-	m.RuntimeMetrics["MSpanSys"] = model.Gauge(m.memStats.MSpanSys)
-	m.RuntimeMetrics["Mallocs"] = model.Gauge(m.memStats.Mallocs)
-	m.RuntimeMetrics["NextGC"] = model.Gauge(m.memStats.NextGC)
-	m.RuntimeMetrics["NumForcedGC"] = model.Gauge(m.memStats.NumForcedGC)
-	m.RuntimeMetrics["NumGC"] = model.Gauge(m.memStats.NumGC)
-	m.RuntimeMetrics["OtherSys"] = model.Gauge(m.memStats.OtherSys)
-	m.RuntimeMetrics["PauseTotalNs"] = model.Gauge(m.memStats.PauseTotalNs)
-	m.RuntimeMetrics["StackInuse"] = model.Gauge(m.memStats.StackInuse)
-	m.RuntimeMetrics["StackSys"] = model.Gauge(m.memStats.StackSys)
-	m.RuntimeMetrics["Sys"] = model.Gauge(m.memStats.Sys)
-	m.RuntimeMetrics["TotalAlloc"] = model.Gauge(m.memStats.TotalAlloc)
+	m.RuntimeMetrics["Alloc"] = models.Gauge(m.memStats.Alloc)
+	m.RuntimeMetrics["BuckHashSys"] = models.Gauge(m.memStats.BuckHashSys)
+	m.RuntimeMetrics["Frees"] = models.Gauge(m.memStats.Frees)
+	m.RuntimeMetrics["GCCPUFraction"] = models.Gauge(m.memStats.GCCPUFraction)
+	m.RuntimeMetrics["GCSys"] = models.Gauge(m.memStats.GCSys)
+	m.RuntimeMetrics["HeapAlloc"] = models.Gauge(m.memStats.HeapAlloc)
+	m.RuntimeMetrics["HeapIdle"] = models.Gauge(m.memStats.HeapIdle)
+	m.RuntimeMetrics["HeapInuse"] = models.Gauge(m.memStats.HeapInuse)
+	m.RuntimeMetrics["HeapObjects"] = models.Gauge(m.memStats.HeapObjects)
+	m.RuntimeMetrics["HeapReleased"] = models.Gauge(m.memStats.HeapReleased)
+	m.RuntimeMetrics["HeapSys"] = models.Gauge(m.memStats.HeapSys)
+	m.RuntimeMetrics["LastGC"] = models.Gauge(m.memStats.LastGC)
+	m.RuntimeMetrics["Lookups"] = models.Gauge(m.memStats.Lookups)
+	m.RuntimeMetrics["MCacheInuse"] = models.Gauge(m.memStats.MCacheInuse)
+	m.RuntimeMetrics["MCacheSys"] = models.Gauge(m.memStats.MCacheSys)
+	m.RuntimeMetrics["MSpanInuse"] = models.Gauge(m.memStats.MSpanInuse)
+	m.RuntimeMetrics["MSpanSys"] = models.Gauge(m.memStats.MSpanSys)
+	m.RuntimeMetrics["Mallocs"] = models.Gauge(m.memStats.Mallocs)
+	m.RuntimeMetrics["NextGC"] = models.Gauge(m.memStats.NextGC)
+	m.RuntimeMetrics["NumForcedGC"] = models.Gauge(m.memStats.NumForcedGC)
+	m.RuntimeMetrics["NumGC"] = models.Gauge(m.memStats.NumGC)
+	m.RuntimeMetrics["OtherSys"] = models.Gauge(m.memStats.OtherSys)
+	m.RuntimeMetrics["PauseTotalNs"] = models.Gauge(m.memStats.PauseTotalNs)
+	m.RuntimeMetrics["StackInuse"] = models.Gauge(m.memStats.StackInuse)
+	m.RuntimeMetrics["StackSys"] = models.Gauge(m.memStats.StackSys)
+	m.RuntimeMetrics["Sys"] = models.Gauge(m.memStats.Sys)
+	m.RuntimeMetrics["TotalAlloc"] = models.Gauge(m.memStats.TotalAlloc)
 
 	m.PollCount++
-	m.RandomValue = model.Gauge(rand.Float64())
+	m.RandomValue = models.Gauge(rand.Float64())
 }
 
-func (m *metrics) GetAll() []model.MetricRaw {
+func (m *metrics) GetAll() []models.MetricRaw {
 	m.mx.RLock()
 	defer m.mx.RUnlock()
 
-	res := []model.MetricRaw{}
+	res := []models.MetricRaw{}
 
 	// Get Runtime Metrics
 	for name, val := range m.RuntimeMetrics {
-		m := model.MetricRaw{
+		m := models.MetricRaw{
 			Type:  "gauge",
 			Name:  name,
 			Value: val.String(),
@@ -79,13 +79,13 @@ func (m *metrics) GetAll() []model.MetricRaw {
 		res = append(res, m)
 	}
 
-	res = append(res, model.MetricRaw{
+	res = append(res, models.MetricRaw{
 		Type:  "counter",
 		Name:  "PollCount",
 		Value: m.PollCount.String(),
 	})
 
-	res = append(res, model.MetricRaw{
+	res = append(res, models.MetricRaw{
 		Type:  "gauge",
 		Name:  "RandomValue",
 		Value: m.RandomValue.String(),
