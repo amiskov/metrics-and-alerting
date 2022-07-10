@@ -7,14 +7,15 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/sender"
+	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/store"
 )
 
-var sendURL string
+var serverURL string
 var pollInterval time.Duration
 var reportInterval time.Duration
 
@@ -27,7 +28,7 @@ func init() {
 	reportIntervalNumber := flag.Int("report", 10, "report interval in seconds")
 	flag.Parse()
 
-	sendURL = *sendProtocol + "://" + *sendHost + ":" + strconv.Itoa(*sendPort)
+	serverURL = *sendProtocol + "://" + *sendHost + ":" + strconv.Itoa(*sendPort)
 
 	pollInterval = time.Duration(time.Duration(*pollIntervalNumber) * time.Second)
 	reportInterval = time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
@@ -35,7 +36,8 @@ func init() {
 
 func main() {
 	// OS signals
-	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	osSignalCtx, stopBySyscall := signal.NotifyContext(
+		context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stopBySyscall()
 
 	metricsStore := store.NewMetricsStore()
@@ -43,7 +45,10 @@ func main() {
 	ticker := time.NewTicker(pollInterval)
 	startTime := time.Now()
 
-	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n", sendURL, pollInterval, reportInterval)
+	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n",
+		serverURL, pollInterval, reportInterval)
+
+	var wg sync.WaitGroup
 
 	for {
 		select {
@@ -51,16 +56,19 @@ func main() {
 			metricsStore.UpdateAll()
 			elapsedFromStart := t.Sub(startTime).Round(time.Second)
 			if elapsedFromStart%reportInterval == 0 {
+				wg.Add(1)
 				go func() {
-					// TODO: Should we use WaitGroup here or something?
-					sender.SendMetrics(sendURL, metricsStore.GetAll())
+					defer wg.Done()
+					api.SendMetrics(serverURL, metricsStore.GetAll())
 				}()
 			}
 		case <-osSignalCtx.Done():
 			ticker.Stop()
-			// TODO: Stop all other things
+			// TODO: What else should we stop after receiving the terminating OS signal?
 			stopBySyscall()
 			os.Exit(0)
 		}
+
+		wg.Wait()
 	}
 }

@@ -1,4 +1,4 @@
-package sender
+package api
 
 import (
 	"log"
@@ -9,7 +9,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/model"
 )
 
-type Storer interface {
+type Storage interface {
 	UpdateAll()
 	GetAll() []model.MetricRaw
 }
