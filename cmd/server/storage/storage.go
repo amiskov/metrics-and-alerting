@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/amiskov/metrics-and-alerting/internal/metrics"
+	"github.com/amiskov/metrics-and-alerting/internal/model"
 )
 
 type MetricData struct {
@@ -13,17 +13,17 @@ type MetricData struct {
 	MetricValue interface{}
 }
 
-var gaugeMetrics = make(map[string]metrics.Gauge)
-var counterMetrics = make(map[string]metrics.Counter)
+var gaugeMetrics = make(map[string]model.Gauge)
+var counterMetrics = make(map[string]model.Counter)
 
 var mu sync.Mutex
 
 func UpdateMetrics(metricData MetricData) {
 	mu.Lock()
 	switch t := metricData.MetricValue.(type) {
-	case metrics.Gauge:
+	case model.Gauge:
 		gaugeMetrics[metricData.MetricName] = t
-	case metrics.Counter:
+	case model.Counter:
 		counterMetrics[metricData.MetricName] += t
 	}
 	mu.Unlock()

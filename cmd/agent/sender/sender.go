@@ -6,37 +6,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/metrics"
+	"github.com/amiskov/metrics-and-alerting/internal/model"
 )
 
-func SendMetrics(sendURL string, m metrics.Metrics) {
+type Storer interface {
+	UpdateAll()
+	GetAll() []model.MetricForSend
+}
+
+func SendMetrics(sendURL string, metrics []model.MetricForSend) {
 	var wg sync.WaitGroup
 
-	// Sending Runtime Metrics
-	for name, val := range m.RuntimeMetrics {
-		name := name
-		val := val
-
+	for _, metric := range metrics {
+		metric := metric
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetric(sendURL, "gauge", name, val.String())
+			sendMetric(sendURL, metric.Type, metric.Name, metric.Value)
 		}()
 	}
-
-	// Sending PollCount
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		sendMetric(sendURL, "counter", "PollCount", m.PollCount.String())
-	}()
-
-	// Sending RandomValue
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		sendMetric(sendURL, "gauge", "RandomValue", m.RandomValue.String())
-	}()
 
 	wg.Wait()
 }

@@ -1,13 +1,14 @@
 package router
 
 import (
-	"github.com/amiskov/metrics-and-alerting/cmd/server/handlers"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"html/template"
 	"log"
 	"net/http"
+
+	"github.com/amiskov/metrics-and-alerting/cmd/server/api/handlers"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
 func NewRouter() chi.Router {

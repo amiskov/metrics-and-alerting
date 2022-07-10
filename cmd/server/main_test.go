@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/router"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/api/router"
 )
 
 func TestUpdateMetric(t *testing.T) {

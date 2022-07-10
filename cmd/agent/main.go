@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/sender"
-	"github.com/amiskov/metrics-and-alerting/internal/metrics"
+	"github.com/amiskov/metrics-and-alerting/cmd/agent/store"
 )
 
 var sendURL string
@@ -38,7 +38,7 @@ func main() {
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stopBySyscall()
 
-	m := metrics.Metrics{}
+	metricsStore := store.NewMetricsStore()
 
 	ticker := time.NewTicker(pollInterval)
 	startTime := time.Now()
@@ -48,12 +48,12 @@ func main() {
 	for {
 		select {
 		case t := <-ticker.C:
-			m.Update()
+			metricsStore.UpdateAll()
 			elapsedFromStart := t.Sub(startTime).Round(time.Second)
 			if elapsedFromStart%reportInterval == 0 {
 				go func() {
 					// TODO: Should we use WaitGroup here or something?
-					sender.SendMetrics(sendURL, m)
+					sender.SendMetrics(sendURL, metricsStore.GetAll())
 				}()
 			}
 		case <-osSignalCtx.Done():
