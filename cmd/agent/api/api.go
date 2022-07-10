@@ -10,7 +10,7 @@ import (
 )
 
 type Service interface {
-	GetAllMetrics() []models.MetricRaw
+	GetMetrics() []models.MetricRaw
 }
 
 type api struct {
@@ -24,14 +24,14 @@ func New(s Service) *api {
 func (a *api) Run(reportInterval time.Duration, serverURL string) {
 	ticker := time.NewTicker(reportInterval)
 	for range ticker.C {
-		a.SendMetrics(serverURL)
+		a.sendMetrics(serverURL)
 	}
 }
 
-func (api *api) SendMetrics(sendURL string) {
+func (a *api) sendMetrics(sendURL string) {
 	var wg sync.WaitGroup
 
-	for _, m := range api.service.GetAllMetrics() {
+	for _, m := range a.service.GetMetrics() {
 		m := m
 		wg.Add(1)
 		go func() {
