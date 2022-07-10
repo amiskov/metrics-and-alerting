@@ -11,10 +11,10 @@ import (
 
 type Storer interface {
 	UpdateAll()
-	GetAll() []model.MetricForSend
+	GetAll() []model.MetricRaw
 }
 
-func SendMetrics(sendURL string, metrics []model.MetricForSend) {
+func SendMetrics(sendURL string, metrics []model.MetricRaw) {
 	var wg sync.WaitGroup
 
 	for _, metric := range metrics {

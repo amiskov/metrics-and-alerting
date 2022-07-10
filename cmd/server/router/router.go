@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"strconv"
 
 	sm "github.com/amiskov/metrics-and-alerting/cmd/server/model"
 	"github.com/amiskov/metrics-and-alerting/internal/model"
@@ -13,8 +12,8 @@ import (
 )
 
 type Store interface {
-	UpdateMetrics(metricData sm.MetricData)
-	GetMetric(metricType string, metricName string) (string, error)
+	UpdateMetric(model.MetricRaw) error
+	GetMetric(string, string) (string, error)
 	GetGaugeMetrics() []string
 	GetCounterMetrics() []string
 }
@@ -58,35 +57,26 @@ func NewRouter(s Store) chi.Router {
 		r.Post("/{metricType}/{metricName}/{metricValue}", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
 
-			metricType := chi.URLParam(r, "metricType")
-			metricName := chi.URLParam(r, "metricName")
-			metricValue := chi.URLParam(r, "metricValue")
-
-			metricData := sm.MetricData{
-				MetricName: metricName,
+			metricData := model.MetricRaw{
+				Type:  chi.URLParam(r, "metricType"),
+				Name:  chi.URLParam(r, "metricName"),
+				Value: chi.URLParam(r, "metricValue"),
 			}
 
-			switch metricType {
-			case "counter":
-				numVal, err := strconv.ParseInt(metricValue, 10, 64)
-				if err != nil {
-					rw.WriteHeader(http.StatusBadRequest)
-					return
-				}
-				metricData.MetricValue = model.Counter(numVal)
-			case "gauge":
-				numVal, err := strconv.ParseFloat(metricValue, 64)
-				if err != nil {
-					rw.WriteHeader(http.StatusBadRequest)
-					return
-				}
-				metricData.MetricValue = model.Gauge(numVal)
-			default:
+			err := s.UpdateMetric(metricData)
+
+			switch err {
+			case sm.ErrorBadMetricFormat:
+				rw.WriteHeader(http.StatusBadRequest)
+				return
+			case sm.ErrorBadMetricFormat:
+				rw.WriteHeader(http.StatusBadRequest)
+				return
+			case sm.ErrorUnknownMetricType:
 				rw.WriteHeader(http.StatusNotImplemented)
 				return
 			}
 
-			s.UpdateMetrics(metricData)
 			rw.WriteHeader(http.StatusOK)
 		})
 	})
@@ -128,6 +118,7 @@ func NewRouter(s Store) chi.Router {
 				log.Println("error while executing the template")
 			}
 		})
+
 		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
 			rw.WriteHeader(http.StatusNotFound)

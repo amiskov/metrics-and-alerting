@@ -63,15 +63,15 @@ func (m *metrics) UpdateAll() {
 	m.RandomValue = model.Gauge(rand.Float64())
 }
 
-func (m *metrics) GetAll() []model.MetricForSend {
+func (m *metrics) GetAll() []model.MetricRaw {
 	m.mx.RLock()
 	defer m.mx.RUnlock()
 
-	res := []model.MetricForSend{}
+	res := []model.MetricRaw{}
 
 	// Get Runtime Metrics
 	for name, val := range m.RuntimeMetrics {
-		m := model.MetricForSend{
+		m := model.MetricRaw{
 			Type:  "gauge",
 			Name:  name,
 			Value: val.String(),
@@ -79,13 +79,13 @@ func (m *metrics) GetAll() []model.MetricForSend {
 		res = append(res, m)
 	}
 
-	res = append(res, model.MetricForSend{
+	res = append(res, model.MetricRaw{
 		Type:  "counter",
 		Name:  "PollCount",
 		Value: m.PollCount.String(),
 	})
 
-	res = append(res, model.MetricForSend{
+	res = append(res, model.MetricRaw{
 		Type:  "gauge",
 		Name:  "RandomValue",
 		Value: m.RandomValue.String(),

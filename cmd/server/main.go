@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/api/router"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/router"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/storage"
 )
 

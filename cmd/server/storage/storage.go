@@ -1,14 +1,12 @@
 package storage
 
 import (
-	"errors"
+	"strconv"
 	"sync"
 
 	sm "github.com/amiskov/metrics-and-alerting/cmd/server/model"
 	"github.com/amiskov/metrics-and-alerting/internal/model"
 )
-
-var ErrorMetricNotFound = errors.New("metric not found")
 
 type store struct {
 	mx *sync.Mutex
@@ -26,16 +24,28 @@ func NewServerStore() *store {
 	}
 }
 
-func (s *store) UpdateMetrics(metricData sm.MetricData) {
+func (s *store) UpdateMetric(m model.MetricRaw) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	switch t := metricData.MetricValue.(type) {
-	case model.Gauge:
-		s.GaugeMetrics[metricData.MetricName] = t
-	case model.Counter:
-		s.CounterMetrics[metricData.MetricName] += t
+	switch m.Type {
+	case "counter":
+		numVal, err := strconv.ParseInt(m.Value, 10, 64)
+		if err != nil {
+			return sm.ErrorBadMetricFormat
+		}
+		s.CounterMetrics[m.Name] = model.Counter(numVal)
+	case "gauge":
+		numVal, err := strconv.ParseFloat(m.Value, 64)
+		if err != nil {
+			return sm.ErrorBadMetricFormat
+		}
+		s.GaugeMetrics[m.Name] = model.Gauge(numVal)
+	default:
+		return sm.ErrorUnknownMetricType
 	}
+
+	return nil
 }
 
 func (s store) GetGaugeMetrics() []string {
@@ -69,16 +79,16 @@ func (s store) GetMetric(metricType string, metricName string) (string, error) {
 	case "gauge":
 		metric, ok := s.GaugeMetrics[metricName]
 		if !ok {
-			return "", ErrorMetricNotFound
+			return "", sm.ErrorMetricNotFound
 		}
 		return metric.String(), nil
 	case "counter":
 		metric, ok := s.CounterMetrics[metricName]
 		if !ok {
-			return "", ErrorMetricNotFound
+			return "", sm.ErrorMetricNotFound
 		}
 		return metric.String(), nil
 	default:
-		return "", ErrorMetricNotFound
+		return "", sm.ErrorMetricNotFound
 	}
 }

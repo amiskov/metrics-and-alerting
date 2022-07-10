@@ -15,7 +15,7 @@ func (c Counter) String() string {
 	return strconv.FormatInt(int64(c), 10)
 }
 
-type MetricForSend struct {
+type MetricRaw struct {
 	Type  string
 	Name  string
 	Value string
