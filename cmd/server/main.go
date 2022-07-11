@@ -21,8 +21,8 @@ func init() {
 
 func main() {
 	flag.Parse()
-	s := store.NewServerStore()
-	r := api.NewRouter(s)
+	storage := store.NewServerStore()
+	router := api.NewRouter(storage)
 	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, r))
+	log.Fatal(http.ListenAndServe(port, router))
 }
