@@ -31,21 +31,21 @@ func init() {
 }
 
 func main() {
-	s := service.New()
-	a := api.New(s)
+	metricsService := service.New()
+	metricsAPI := api.New(metricsService)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.Run(pollInterval)
+		metricsService.Run(pollInterval)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		a.Run(reportInterval, serverURL)
+		metricsAPI.Run(reportInterval, serverURL)
 	}()
 
 	wg.Wait()
