@@ -2,9 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"net/http"
 	"strconv"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
@@ -22,7 +19,6 @@ func init() {
 func main() {
 	flag.Parse()
 	storage := store.NewServerStore()
-	router := api.NewRouter(storage)
-	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, router))
+	metricsAPI := api.New(storage)
+	metricsAPI.Run(port)
 }

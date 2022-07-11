@@ -1,7 +1,7 @@
 package api
 
 import (
-	"html/template"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -18,7 +18,12 @@ type Storage interface {
 	GetCounterMetrics() []models.MetricRaw
 }
 
-func NewRouter(s Storage) chi.Router {
+type api struct {
+	Router *chi.Mux
+	store  Storage
+}
+
+func New(s Storage) *api {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -26,24 +31,31 @@ func NewRouter(s Storage) chi.Router {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	tmpl, err := template.New("index").Parse(`<h1>Metrics Service</h1>
-		<h2>Gauge Metrics</h2>
-		<table>
-		{{range $m := .GaugeMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
-		{{end}}
-		</table>
-		<h2>Counter Metrics</h2>
-		<table>
-		{{range $m := .CounterMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
-		{{end}}
-		</table>`)
-	if err != nil {
-		log.Fatal(err)
+	return &api{
+		Router: r,
+		store:  s,
 	}
+}
 
-	r.Route("/update", func(r chi.Router) {
+func (a *api) Run(port string) {
+	a.Router.Route("/value", func(r chi.Router) {
+		r.Get("/{metricType}/{metricName}", func(rw http.ResponseWriter, r *http.Request) {
+			metricType := chi.URLParam(r, "metricType")
+			metricName := chi.URLParam(r, "metricName")
+
+			metricValue, err := a.store.GetMetric(metricType, metricName)
+			if err != nil {
+				rw.WriteHeader(http.StatusNotFound)
+				rw.Write([]byte(err.Error()))
+				return
+			}
+
+			rw.WriteHeader(http.StatusOK)
+			rw.Write([]byte(metricValue))
+		})
+	})
+
+	a.Router.Route("/update", func(r chi.Router) {
 		r.Post("/{metricType}/", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
 			rw.WriteHeader(http.StatusNotFound)
@@ -63,7 +75,7 @@ func NewRouter(s Storage) chi.Router {
 				Value: chi.URLParam(r, "metricValue"),
 			}
 
-			err := s.UpdateMetric(metricData)
+			err := a.store.UpdateMetric(metricData)
 			switch err {
 			case sm.ErrorBadMetricFormat:
 				rw.WriteHeader(http.StatusBadRequest)
@@ -80,40 +92,8 @@ func NewRouter(s Storage) chi.Router {
 		})
 	})
 
-	r.Route("/value", func(r chi.Router) {
-		r.Get("/{metricType}/{metricName}", func(rw http.ResponseWriter, r *http.Request) {
-			metricType := chi.URLParam(r, "metricType")
-			metricName := chi.URLParam(r, "metricName")
-
-			metricValue, err := s.GetMetric(metricType, metricName)
-			if err != nil {
-				rw.WriteHeader(http.StatusNotFound)
-				rw.Write([]byte(err.Error()))
-				return
-			}
-
-			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte(metricValue))
-		})
-	})
-
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", func(rw http.ResponseWriter, r *http.Request) {
-			rw.Header().Set("Content-Type", "text/html")
-
-			err := tmpl.Execute(rw,
-				struct {
-					GaugeMetrics   []models.MetricRaw
-					CounterMetrics []models.MetricRaw
-				}{
-					s.GetGaugeMetrics(),
-					s.GetCounterMetrics(),
-				})
-			if err != nil {
-				rw.WriteHeader(http.StatusInternalServerError)
-				log.Println("error while executing the template")
-			}
-		})
+	a.Router.Route("/", func(r chi.Router) {
+		r.Get("/", a.GetIndex)
 
 		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
 			rw.Header().Set("Content-Type", "text/plain")
@@ -121,5 +101,6 @@ func NewRouter(s Storage) chi.Router {
 		})
 	})
 
-	return r
+	fmt.Printf("Server has been started at %s\n", port)
+	log.Fatal(http.ListenAndServe(port, a.Router))
 }
