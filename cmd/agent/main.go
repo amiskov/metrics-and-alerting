@@ -48,8 +48,8 @@ func main() {
 		metricsAPI.Run(reportInterval, serverURL)
 	}()
 
-	wg.Wait()
-
 	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n",
 		serverURL, pollInterval, reportInterval)
+
+	wg.Wait()
 }
