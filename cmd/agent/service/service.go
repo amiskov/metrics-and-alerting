@@ -34,8 +34,8 @@ func (s *service) Run(pollInterval time.Duration) {
 }
 
 func (s *service) GetMetrics() []models.MetricRaw {
-	s.mx.RLock()
-	defer s.mx.RUnlock()
+	s.mx.Lock()
+	defer s.mx.Unlock()
 
 	var res []models.MetricRaw
 
@@ -67,8 +67,8 @@ func (s *service) GetMetrics() []models.MetricRaw {
 func (s *service) updateMetrics() {
 	runtime.ReadMemStats(s.memStats)
 
-	s.mx.RLock()
-	defer s.mx.RUnlock()
+	s.mx.Lock()
+	defer s.mx.Unlock()
 
 	s.runtimeMetrics["Alloc"] = models.Gauge(s.memStats.Alloc)
 	s.runtimeMetrics["BuckHashSys"] = models.Gauge(s.memStats.BuckHashSys)
