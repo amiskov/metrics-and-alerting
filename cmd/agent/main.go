@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
@@ -34,46 +34,32 @@ func init() {
 	reportInterval = time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
 }
 
-func handleSignals(cancel context.CancelFunc) {
-	osSignalCtx, stopBySyscall := signal.NotifyContext(
-		context.Background(),
-		// syscall.SIGTERM,
-		syscall.SIGINT,
-		// syscall.SIGQUIT,
-	)
-
-	<-osSignalCtx.Done()
-	fmt.Println("Terminating agent, please wait...")
-	cancel() // stop timers
-	stopBySyscall()
-}
-
 func main() {
-	// Context for managing agent's polling & reporting
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go handleSignals(cancel)
-
 	metricsService := service.New()
 	metricsAPI := api.New(metricsService)
 
-	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		metricsService.Run(ctx, pollInterval)
-	}()
+	stoppedTimersChan := make(chan bool, 1)
+	go metricsService.Run(ctx, stoppedTimersChan, pollInterval)
+	go metricsAPI.Run(ctx, stoppedTimersChan, reportInterval, serverURL)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		metricsAPI.Run(ctx, reportInterval, serverURL)
-	}()
+	log.Printf("Agent has been started.")
+	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", serverURL, pollInterval, reportInterval)
 
-	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n",
-		serverURL, pollInterval, reportInterval)
+	// Managing user signals
+	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stopBySyscall()
 
-	wg.Wait()
+	<-osSignalCtx.Done()
+	fmt.Println("Terminating agent, please wait...")
+	cancel() // stop processes
+	stopBySyscall()
+
+	<-stoppedTimersChan
+	<-stoppedTimersChan
+
+	fmt.Println("Agent has been terminated. Bye!")
+	os.Exit(0)
 }

@@ -28,13 +28,14 @@ func New() *service {
 	}
 }
 
-func (s *service) Run(ctx context.Context, pollInterval time.Duration) {
+func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 	for range ticker.C {
 		select {
 		case <-ctx.Done():
-			log.Println("Cancel update metrics.")
 			ticker.Stop()
+			log.Println("Metrics update stopped.")
+			done <- true
 		default:
 			s.updateMetrics()
 		}
