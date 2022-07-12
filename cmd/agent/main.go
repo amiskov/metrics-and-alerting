@@ -35,30 +35,29 @@ func init() {
 }
 
 func main() {
-	metricsService := service.New()
-	metricsAPI := api.New(metricsService)
-
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	stoppedTimersChan := make(chan bool, 1)
-	go metricsService.Run(ctx, stoppedTimersChan, pollInterval)
-	go metricsAPI.Run(ctx, stoppedTimersChan, reportInterval, serverURL)
+	updater := service.New()
+	reporter := api.New(updater)
 
-	log.Printf("Agent has been started.")
+	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
+	go updater.Run(ctx, finished, pollInterval)
+	go reporter.Run(ctx, finished, reportInterval, serverURL)
+
+	log.Println("Agent has been started.")
 	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", serverURL, pollInterval, reportInterval)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	defer stopBySyscall()
 
 	<-osSignalCtx.Done()
 	fmt.Println("Terminating agent, please wait...")
 	cancel() // stop processes
 	stopBySyscall()
 
-	<-stoppedTimersChan
-	<-stoppedTimersChan
+	<-finished
+	<-finished
+	close(finished)
 
 	fmt.Println("Agent has been terminated. Bye!")
 	os.Exit(0)
