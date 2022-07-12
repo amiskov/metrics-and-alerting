@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
@@ -34,7 +33,7 @@ func (s *service) Run(ctx context.Context, pollInterval time.Duration) {
 	for range ticker.C {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Cancel update metrics.")
+			log.Println("Cancel update metrics.")
 			ticker.Stop()
 		default:
 			s.updateMetrics()

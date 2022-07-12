@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
@@ -31,12 +34,29 @@ func init() {
 	reportInterval = time.Duration(time.Duration(*reportIntervalNumber) * time.Second)
 }
 
-func main() {
-	metricsService := service.New()
-	metricsAPI := api.New(metricsService)
+func handleSignals(cancel context.CancelFunc) {
+	osSignalCtx, stopBySyscall := signal.NotifyContext(
+		context.Background(),
+		// syscall.SIGTERM,
+		syscall.SIGINT,
+		// syscall.SIGQUIT,
+	)
 
+	<-osSignalCtx.Done()
+	fmt.Println("Terminating agent, please wait...")
+	cancel() // stop timers
+	stopBySyscall()
+}
+
+func main() {
+	// Context for managing agent's polling & reporting
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	go handleSignals(cancel)
+
+	metricsService := service.New()
+	metricsAPI := api.New(metricsService)
 
 	var wg sync.WaitGroup
 
