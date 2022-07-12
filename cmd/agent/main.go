@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"strconv"
@@ -34,18 +35,21 @@ func main() {
 	metricsService := service.New()
 	metricsAPI := api.New(metricsService)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		metricsService.Run(pollInterval)
+		metricsService.Run(ctx, pollInterval)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		metricsAPI.Run(reportInterval, serverURL)
+		metricsAPI.Run(ctx, reportInterval, serverURL)
 	}()
 
 	log.Printf("Agent started. Sending to: %v. Poll: %v. Report: %v.\n",

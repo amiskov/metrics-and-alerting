@@ -1,6 +1,9 @@
 package service
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -26,10 +29,16 @@ func New() *service {
 	}
 }
 
-func (s *service) Run(pollInterval time.Duration) {
+func (s *service) Run(ctx context.Context, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 	for range ticker.C {
-		s.updateMetrics()
+		select {
+		case <-ctx.Done():
+			fmt.Println("Cancel update metrics.")
+			ticker.Stop()
+		default:
+			s.updateMetrics()
+		}
 	}
 }
 
@@ -100,4 +109,5 @@ func (s *service) updateMetrics() {
 
 	s.pollCount++
 	s.randomValue = models.Gauge(rand.Float64())
+	log.Println("Metrics has been updated.")
 }

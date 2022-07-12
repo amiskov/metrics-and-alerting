@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"sync"
@@ -21,10 +22,16 @@ func New(s Service) *api {
 	return &api{service: s}
 }
 
-func (a *api) Run(reportInterval time.Duration, serverURL string) {
+func (a *api) Run(ctx context.Context, reportInterval time.Duration, serverURL string) {
 	ticker := time.NewTicker(reportInterval)
 	for range ticker.C {
-		a.sendMetrics(serverURL)
+		select {
+		case <-ctx.Done():
+			log.Println("Cancel report metrics.")
+			ticker.Stop()
+		default:
+			a.sendMetrics(serverURL)
+		}
 	}
 }
 
