@@ -75,8 +75,8 @@ func TestUpdateMetric(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			s := store.NewServerStore()
-			api := api.New(s)
-			api.Router.ServeHTTP(w, request)
+			metricsAPI := api.New(s)
+			metricsAPI.Router.ServeHTTP(w, request)
 
 			res := w.Result()
 			defer res.Body.Close()

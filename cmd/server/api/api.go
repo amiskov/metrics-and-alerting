@@ -2,13 +2,12 @@ package api
 
 import (
 	"fmt"
+	"github.com/go-chi/chi/middleware"
 	"log"
 	"net/http"
 
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 )
 
 type Storage interface {
@@ -18,89 +17,46 @@ type Storage interface {
 	GetCounterMetrics() []models.MetricRaw
 }
 
-type api struct {
+type metricsAPI struct {
 	Router *chi.Mux
 	store  Storage
 }
 
-func New(s Storage) *api {
-	r := chi.NewRouter()
-
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
-	return &api{
-		Router: r,
+func New(s Storage) *metricsAPI {
+	api := &metricsAPI{
+		Router: chi.NewRouter(),
 		store:  s,
 	}
+	api.mountHandlers()
+	return api
 }
 
-func (a *api) Run(port string) {
-	a.Router.Route("/value", func(r chi.Router) {
-		r.Get("/{metricType}/{metricName}", func(rw http.ResponseWriter, r *http.Request) {
-			metricType := chi.URLParam(r, "metricType")
-			metricName := chi.URLParam(r, "metricName")
-
-			metricValue, err := a.store.GetMetric(metricType, metricName)
-			if err != nil {
-				rw.WriteHeader(http.StatusNotFound)
-				rw.Write([]byte(err.Error()))
-				return
-			}
-
-			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte(metricValue))
-		})
-	})
-
-	a.Router.Route("/update", func(r chi.Router) {
-		r.Post("/{metricType}/", func(rw http.ResponseWriter, r *http.Request) {
-			rw.Header().Set("Content-Type", "text/plain")
-			rw.WriteHeader(http.StatusNotFound)
-		})
-
-		r.Post("/{metricType}/{metricName}/", func(rw http.ResponseWriter, r *http.Request) {
-			rw.Header().Set("Content-Type", "text/plain")
-			rw.WriteHeader(http.StatusNotImplemented)
-		})
-
-		r.Post("/{metricType}/{metricName}/{metricValue}", func(rw http.ResponseWriter, r *http.Request) {
-			rw.Header().Set("Content-Type", "text/plain")
-
-			metricData := models.MetricRaw{
-				Type:  chi.URLParam(r, "metricType"),
-				Name:  chi.URLParam(r, "metricName"),
-				Value: chi.URLParam(r, "metricValue"),
-			}
-
-			err := a.store.UpdateMetric(metricData)
-			switch err {
-			case sm.ErrorBadMetricFormat:
-				rw.WriteHeader(http.StatusBadRequest)
-				return
-			case sm.ErrorMetricNotFound:
-				rw.WriteHeader(http.StatusNotFound)
-				return
-			case sm.ErrorUnknownMetricType:
-				rw.WriteHeader(http.StatusNotImplemented)
-				return
-			}
-
-			rw.WriteHeader(http.StatusOK)
-		})
-	})
-
-	a.Router.Route("/", func(r chi.Router) {
-		r.Get("/", a.GetIndex)
-
-		r.Post("/*", func(rw http.ResponseWriter, r *http.Request) {
-			rw.Header().Set("Content-Type", "text/plain")
-			rw.WriteHeader(http.StatusNotFound)
-		})
-	})
-
+func (api *metricsAPI) Run(port string) {
 	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, a.Router))
+	log.Fatal(http.ListenAndServe(port, api.Router))
+}
+func (api *metricsAPI) MountHndlrs(handler *chi.Mux) {
+	api.Router = handler
+}
+
+func (api *metricsAPI) mountHandlers() {
+	api.Router.Use(middleware.RequestID)
+	api.Router.Use(middleware.RealIP)
+	api.Router.Use(middleware.Logger)
+	api.Router.Use(middleware.Recoverer)
+
+	api.Router.Route("/value", func(r chi.Router) {
+		r.Get("/{metricType}/{metricName}", api.getMetric)
+	})
+
+	api.Router.Route("/update", func(r chi.Router) {
+		r.Post("/{metricType}/", handleNotFound)
+		r.Post("/{metricType}/{metricName}/", handleNotImplemented)
+		r.Post("/{metricType}/{metricName}/{metricValue}", api.upsertMetric)
+	})
+
+	api.Router.Route("/", func(r chi.Router) {
+		r.Get("/", api.getMetricsList)
+		r.Post("/*", handleNotFound)
+	})
 }
