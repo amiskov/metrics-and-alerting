@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -103,4 +104,30 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
+}
+
+func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	metricData := models.Metrics{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&metricData)
+	if err != nil {
+		panic(err)
+	}
+
+	err = api.store.UpdateMetric(metricData)
+	switch err {
+	case sm.ErrorBadMetricFormat:
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	case sm.ErrorMetricNotFound:
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	case sm.ErrorUnknownMetricType:
+		rw.WriteHeader(http.StatusNotImplemented)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
 }

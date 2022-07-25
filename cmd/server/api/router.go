@@ -16,6 +16,7 @@ func (api *metricsAPI) mountHandlers() {
 	})
 
 	api.Router.Route("/update", func(r chi.Router) {
+		r.Post("/", api.upsertMetricJSON)
 		r.Post("/{metricType}/", handleNotFound)
 		r.Post("/{metricType}/{metricName}/", handleNotImplemented)
 		r.Post("/{metricType}/{metricName}/{metricValue}", api.upsertMetric)
