@@ -41,8 +41,8 @@ func main() {
 	reporter := api.New(updater)
 
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
-	go updater.Run(ctx, finished, pollInterval)
-	go reporter.Run(ctx, finished, reportInterval, serverURL)
+	// go updater.Run(ctx, finished, pollInterval)
+	go reporter.RunJSON(ctx, finished, reportInterval, serverURL)
 
 	log.Println("Agent has been started.")
 	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", serverURL, pollInterval, reportInterval)
