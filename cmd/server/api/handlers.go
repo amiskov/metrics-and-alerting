@@ -78,6 +78,9 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&reqMetric)
 	if err != nil {
 		log.Printf("Error while decoding metric for the response: %s", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
+		return
 	}
 	metricType := reqMetric.MType
 	metricName := reqMetric.ID
@@ -92,9 +95,13 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	jbz, err := json.Marshal(metricValue)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %+v", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
+		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
+	fmt.Println("JSON! →", []byte(string(jbz)))
 	rw.Write([]byte(string(jbz)))
 }
 
@@ -110,14 +117,14 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	case "counter":
 		delta, err = strconv.ParseInt(urlVal, 10, 64)
 		if err != nil {
-			log.Printf(err.Error())
+			log.Println(err.Error())
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 	case "gauge":
 		val, err = strconv.ParseFloat(urlVal, 64)
 		if err != nil {
-			log.Printf(err.Error())
+			log.Println(err.Error())
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -162,8 +169,9 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&metricData)
 	if err != nil {
-		msg := fmt.Sprintf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
-		rw.Write([]byte(`{"error":"` + msg + `"}`))
+		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte(`{"error":"` + sm.ErrorBadMetricFormat.Error() + `"}`))
 		return
 	}
 
