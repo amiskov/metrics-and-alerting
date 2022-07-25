@@ -10,10 +10,10 @@ import (
 )
 
 type Storage interface {
-	UpdateMetric(models.MetricRaw) error
+	UpdateMetric(models.Metrics) error
 	GetMetric(string, string) (string, error)
-	GetGaugeMetrics() []models.MetricRaw
-	GetCounterMetrics() []models.MetricRaw
+	GetGaugeMetrics() []models.Metrics
+	GetCounterMetrics() []models.Metrics
 }
 
 type metricsAPI struct {

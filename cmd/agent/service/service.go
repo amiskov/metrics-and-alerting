@@ -42,32 +42,35 @@ func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Dur
 	}
 }
 
-func (s *service) GetMetrics() []models.MetricRaw {
+func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.MetricRaw
+	var res []models.Metrics
 
 	// Get Runtime Metrics
 	for name, val := range s.runtimeMetrics {
-		m := models.MetricRaw{
-			Type:  "gauge",
-			Name:  name,
-			Value: val.String(),
+		val := float64(val)
+		m := models.Metrics{
+			MType: "gauge",
+			ID:    name,
+			Value: &val,
 		}
 		res = append(res, m)
 	}
 
-	res = append(res, models.MetricRaw{
-		Type:  "counter",
-		Name:  "PollCount",
-		Value: s.pollCount.String(),
+	val := int64(s.pollCount)
+	res = append(res, models.Metrics{
+		MType: "counter",
+		ID:    "PollCount",
+		Delta: &val,
 	})
 
-	res = append(res, models.MetricRaw{
-		Type:  "gauge",
-		Name:  "RandomValue",
-		Value: s.randomValue.String(),
+	randVal := float64(s.randomValue)
+	res = append(res, models.Metrics{
+		MType: "gauge",
+		ID:    "RandomValue",
+		Value: &randVal,
 	})
 
 	return res

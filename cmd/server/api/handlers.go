@@ -1,12 +1,14 @@
 package api
 
 import (
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
-	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/go-chi/chi"
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
+
+	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
+	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/go-chi/chi"
 )
 
 var indexTmpl = template.Must(
@@ -14,13 +16,13 @@ var indexTmpl = template.Must(
 		<h2>Gauge Metrics</h2>
 		<table>
 		{{range $m := .GaugeMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
+			 <tr><td>{{$m.ID}}</td><td>{{$m.Value}}</td></tr>
 		{{end}}
 		</table>
 		<h2>Counter Metrics</h2>
 		<table>
 		{{range $m := .CounterMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
+			 <tr><td>{{$m.ID}}</td><td>{{$m.Delta}}</td></tr>
 		{{end}}
 		</table>`))
 
@@ -29,8 +31,8 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 
 	err := indexTmpl.Execute(rw,
 		struct {
-			GaugeMetrics   []models.MetricRaw
-			CounterMetrics []models.MetricRaw
+			GaugeMetrics   []models.Metrics
+			CounterMetrics []models.Metrics
 		}{
 			api.store.GetGaugeMetrics(),
 			api.store.GetCounterMetrics(),
@@ -60,10 +62,21 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 
-	metricData := models.MetricRaw{
-		Type:  chi.URLParam(r, "metricType"),
-		Name:  chi.URLParam(r, "metricName"),
-		Value: chi.URLParam(r, "metricValue"),
+	urlVal := chi.URLParam(r, "metricValue")
+	mType := chi.URLParam(r, "metricType")
+	var val float64
+	var delta int64
+	switch mType {
+	case "counter":
+		delta, _ = strconv.ParseInt(urlVal, 10, 64)
+	case "gauge":
+		val, _ = strconv.ParseFloat(urlVal, 64)
+	}
+	metricData := models.Metrics{
+		MType: mType,
+		ID:    chi.URLParam(r, "metricName"),
+		Value: &val,
+		Delta: &delta,
 	}
 
 	err := api.store.UpdateMetric(metricData)

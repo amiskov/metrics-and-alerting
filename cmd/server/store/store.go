@@ -2,7 +2,6 @@ package store
 
 import (
 	"sort"
-	"strconv"
 	"sync"
 
 	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
@@ -25,23 +24,15 @@ func NewServerStore() *store {
 	}
 }
 
-func (s *store) UpdateMetric(m models.MetricRaw) error {
+func (s *store) UpdateMetric(m models.Metrics) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	switch m.Type {
+	switch m.MType {
 	case "counter":
-		numVal, err := strconv.ParseInt(m.Value, 10, 64)
-		if err != nil {
-			return sm.ErrorBadMetricFormat
-		}
-		s.CounterMetrics[m.Name] += models.Counter(numVal)
+		s.CounterMetrics[m.ID] += models.Counter(*m.Delta)
 	case "gauge":
-		numVal, err := strconv.ParseFloat(m.Value, 64)
-		if err != nil {
-			return sm.ErrorBadMetricFormat
-		}
-		s.GaugeMetrics[m.Name] = models.Gauge(numVal)
+		s.GaugeMetrics[m.ID] = models.Gauge(*m.Value)
 	default:
 		return sm.ErrorUnknownMetricType
 	}
@@ -49,42 +40,44 @@ func (s *store) UpdateMetric(m models.MetricRaw) error {
 	return nil
 }
 
-func (s store) GetGaugeMetrics() []models.MetricRaw {
+func (s store) GetGaugeMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.MetricRaw
+	var res []models.Metrics
 
 	for name, val := range s.GaugeMetrics {
-		res = append(res, models.MetricRaw{
-			Type:  "gauge",
-			Name:  name,
-			Value: val.String(),
+		val := float64(val)
+		res = append(res, models.Metrics{
+			MType: "gauge",
+			ID:    name,
+			Value: &val,
 		})
 	}
 
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+		return res[i].ID < res[j].ID
 	})
 
 	return res
 }
 
-func (s store) GetCounterMetrics() []models.MetricRaw {
+func (s store) GetCounterMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.MetricRaw
+	var res []models.Metrics
 	for name, val := range s.CounterMetrics {
-		res = append(res, models.MetricRaw{
-			Type:  "counter",
-			Name:  name,
-			Value: val.String(),
+		val := int64(val)
+		res = append(res, models.Metrics{
+			MType: "counter",
+			ID:    name,
+			Delta: &val,
 		})
 	}
 
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+		return res[i].ID < res[j].ID
 	})
 
 	return res

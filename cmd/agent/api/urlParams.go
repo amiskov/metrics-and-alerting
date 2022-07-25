@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 )
 
 type Service interface {
-	GetMetrics() []models.MetricRaw
+	GetMetrics() []models.Metrics
 }
 
 type api struct {
@@ -44,7 +46,18 @@ func (a *api) sendMetrics(sendURL string) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetric(sendURL, m.Type, m.Name, m.Value)
+
+			var val string
+			switch m.MType {
+			case "gauge":
+				val = strconv.FormatFloat(float64(*m.Value), 'f', 3, 64)
+			case "counter":
+				fmt.Printf("%v (%v): %+v\n", m.ID, m.MType, m.Value)
+				val = strconv.FormatInt(int64(*m.Delta), 10)
+			default:
+				log.Printf("Unknown metric type: %#v", m)
+			}
+			sendMetric(sendURL, m.MType, m.ID, val)
 		}()
 	}
 
