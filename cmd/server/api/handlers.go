@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -155,28 +156,33 @@ func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
 	metricData := models.Metrics{}
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&metricData)
 	if err != nil {
-		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		msg := fmt.Sprintf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
+		rw.Write([]byte(`{"error":"` + msg + `"}`))
+		return
 	}
 
 	err = api.store.UpdateMetric(metricData)
 	switch err {
 	case sm.ErrorBadMetricFormat:
 		http.Error(rw, err.Error(), http.StatusBadRequest)
+		rw.Write([]byte(`{"error":"` + sm.ErrorBadMetricFormat.Error() + `"}`))
 		return
 	case sm.ErrorMetricNotFound:
-		// rw.WriteHeader(http.StatusNotFound)
+		rw.Write([]byte(`{"error":"` + sm.ErrorMetricNotFound.Error() + `"}`))
+		rw.WriteHeader(http.StatusNotFound)
 		http.NotFound(rw, r)
 		return
 	case sm.ErrorUnknownMetricType:
 		rw.WriteHeader(http.StatusNotImplemented)
+		rw.Write([]byte(`{"error":"` + sm.ErrorUnknownMetricType.Error() + `"}`))
 		return
 	}
 
-	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
 }
