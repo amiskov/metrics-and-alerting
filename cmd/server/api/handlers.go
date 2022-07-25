@@ -104,11 +104,22 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "metricType")
 	var val float64
 	var delta int64
+	var err error
 	switch mType {
 	case "counter":
-		delta, _ = strconv.ParseInt(urlVal, 10, 64)
+		delta, err = strconv.ParseInt(urlVal, 10, 64)
+		if err != nil {
+			log.Printf(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	case "gauge":
-		val, _ = strconv.ParseFloat(urlVal, 64)
+		val, err = strconv.ParseFloat(urlVal, 64)
+		if err != nil {
+			log.Printf(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 	metricData := models.Metrics{
 		MType: mType,
@@ -117,7 +128,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 		Delta: &delta,
 	}
 
-	err := api.store.UpdateMetric(metricData)
+	err = api.store.UpdateMetric(metricData)
 	switch err {
 	case sm.ErrorBadMetricFormat:
 		rw.WriteHeader(http.StatusBadRequest)
@@ -150,7 +161,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&metricData)
 	if err != nil {
-		log.Printf("Error while decoding received metric data: %s. Body is: %#v", err, r.Body)
+		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
 	}
 
 	err = api.store.UpdateMetric(metricData)
