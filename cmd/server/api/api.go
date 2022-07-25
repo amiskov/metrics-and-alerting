@@ -11,9 +11,8 @@ import (
 
 type Storage interface {
 	UpdateMetric(models.Metrics) error
-	GetMetric(string, string) (string, error)
-	GetGaugeMetrics() []models.Metrics
-	GetCounterMetrics() []models.Metrics
+	GetMetric(mType string, mName string) (models.Metrics, error)
+	GetAllMetrics() []models.Metrics
 }
 
 type metricsAPI struct {

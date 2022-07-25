@@ -9,18 +9,14 @@ import (
 )
 
 type store struct {
-	mx *sync.Mutex
-
-	GaugeMetrics   map[string]models.Gauge
-	CounterMetrics map[string]models.Counter
+	mx      *sync.Mutex
+	Metrics map[string]models.Metrics
 }
 
 func NewServerStore() *store {
 	return &store{
-		mx: new(sync.Mutex),
-
-		GaugeMetrics:   make(map[string]models.Gauge),
-		CounterMetrics: make(map[string]models.Counter),
+		mx:      new(sync.Mutex),
+		Metrics: make(map[string]models.Metrics),
 	}
 }
 
@@ -30,77 +26,37 @@ func (s *store) UpdateMetric(m models.Metrics) error {
 
 	switch m.MType {
 	case "counter":
-		s.CounterMetrics[m.ID] += models.Counter(*m.Delta)
+		if _, ok := s.Metrics[m.ID]; ok {
+			*s.Metrics[m.ID].Delta += *m.Delta
+		} else {
+			s.Metrics[m.ID] = m
+		}
 	case "gauge":
-		s.GaugeMetrics[m.ID] = models.Gauge(*m.Value)
+		s.Metrics[m.ID] = m
 	default:
 		return sm.ErrorUnknownMetricType
 	}
 
 	return nil
 }
-
-func (s store) GetGaugeMetrics() []models.Metrics {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-
-	var res []models.Metrics
-
-	for name, val := range s.GaugeMetrics {
-		val := float64(val)
-		res = append(res, models.Metrics{
-			MType: "gauge",
-			ID:    name,
-			Value: &val,
-		})
+func (s store) GetAllMetrics() []models.Metrics {
+	var metrics []models.Metrics
+	for _, m := range s.Metrics {
+		metrics = append(metrics, m)
 	}
-
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].ID < res[j].ID
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
 	})
-
-	return res
+	return metrics
 }
 
-func (s store) GetCounterMetrics() []models.Metrics {
+func (s store) GetMetric(metricType string, metricName string) (models.Metrics, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.Metrics
-	for name, val := range s.CounterMetrics {
-		val := int64(val)
-		res = append(res, models.Metrics{
-			MType: "counter",
-			ID:    name,
-			Delta: &val,
-		})
+	metric, ok := s.Metrics[metricName]
+	if !ok {
+		return metric, sm.ErrorMetricNotFound
 	}
-
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].ID < res[j].ID
-	})
-
-	return res
-}
-
-func (s store) GetMetric(metricType string, metricName string) (string, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-
-	switch metricType {
-	case "gauge":
-		metric, ok := s.GaugeMetrics[metricName]
-		if !ok {
-			return "", sm.ErrorMetricNotFound
-		}
-		return metric.String(), nil
-	case "counter":
-		metric, ok := s.CounterMetrics[metricName]
-		if !ok {
-			return "", sm.ErrorMetricNotFound
-		}
-		return metric.String(), nil
-	default:
-		return "", sm.ErrorMetricNotFound
-	}
+	return metric, nil
 }

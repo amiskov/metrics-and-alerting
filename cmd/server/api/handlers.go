@@ -13,17 +13,21 @@ import (
 )
 
 var indexTmpl = template.Must(
-	template.New("index").Parse(`<h1>Metrics Service</h1>
-		<h2>Gauge Metrics</h2>
+	template.New("index").Parse(`<h1>Metrics</h1>
 		<table>
-		{{range $m := .GaugeMetrics}}
-			 <tr><td>{{$m.ID}}</td><td>{{$m.Value}}</td></tr>
-		{{end}}
-		</table>
-		<h2>Counter Metrics</h2>
-		<table>
-		{{range $m := .CounterMetrics}}
-			 <tr><td>{{$m.ID}}</td><td>{{$m.Delta}}</td></tr>
+		{{range $m := .Metrics}}
+			 <tr>
+			 <td>{{$m.ID}}</td>
+			 	<td>{{$m.MType}}</td>
+
+			 {{if (eq $m.MType "gauge")}}
+			 	<td>{{$m.Value}}</td>
+			 {{ end }}
+
+			 {{if (eq $m.MType "counter")}}
+			 	<td>{{$m.Delta}}</td>
+			 {{ end }}
+			 </tr>
 		{{end}}
 		</table>`))
 
@@ -32,11 +36,9 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 
 	err := indexTmpl.Execute(rw,
 		struct {
-			GaugeMetrics   []models.Metrics
-			CounterMetrics []models.Metrics
+			Metrics []models.Metrics
 		}{
-			api.store.GetGaugeMetrics(),
-			api.store.GetCounterMetrics(),
+			Metrics: api.store.GetAllMetrics(),
 		})
 
 	if err != nil {
@@ -55,9 +57,44 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 		rw.Write([]byte(err.Error()))
 		return
 	}
+	var res string
+	switch metricType {
+	case "counter":
+		res = strconv.FormatInt(*metricValue.Delta, 10)
+	case "gauge":
+		res = strconv.FormatFloat(*metricValue.Value, 'f', 3, 64)
+	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(metricValue))
+	rw.Write([]byte(res))
+}
+
+func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	reqMetric := models.Metrics{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&reqMetric)
+	if err != nil {
+		log.Printf("Error while decoding metric for the response: %s", err)
+	}
+	metricType := reqMetric.MType
+	metricName := reqMetric.ID
+
+	metricValue, err := api.store.GetMetric(metricType, metricName)
+	if err != nil {
+		rw.WriteHeader(http.StatusNotFound)
+		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
+		return
+	}
+
+	jbz, err := json.Marshal(metricValue)
+	if err != nil {
+		log.Printf("Error marshalling JSON: %+v", err)
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	rw.Write([]byte(string(jbz)))
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
@@ -113,7 +150,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&metricData)
 	if err != nil {
-		panic(err)
+		log.Printf("Error while decoding received metric data: %s. Body is: %#v", err, r.Body)
 	}
 
 	err = api.store.UpdateMetric(metricData)

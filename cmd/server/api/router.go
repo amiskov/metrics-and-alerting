@@ -12,6 +12,7 @@ func (api *metricsAPI) mountHandlers() {
 	api.Router.Use(middleware.Recoverer)
 
 	api.Router.Route("/value", func(r chi.Router) {
+		r.Post("/", api.getMetricJSON)
 		r.Get("/{metricType}/{metricName}", api.getMetric)
 	})
 
