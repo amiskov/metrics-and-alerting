@@ -85,7 +85,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&reqMetric)
 	if err != nil {
 		log.Printf("Error while decoding metric for the response: %s", err)
-		rw.WriteHeader(http.StatusBadRequest)
+		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
 		return
 	}
