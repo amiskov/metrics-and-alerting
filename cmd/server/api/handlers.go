@@ -155,27 +155,28 @@ func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Set("Content-Type", "application/json")
-
 	metricData := models.Metrics{}
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&metricData)
 	if err != nil {
 		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 	}
 
 	err = api.store.UpdateMetric(metricData)
 	switch err {
 	case sm.ErrorBadMetricFormat:
-		rw.WriteHeader(http.StatusBadRequest)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	case sm.ErrorMetricNotFound:
-		rw.WriteHeader(http.StatusNotFound)
+		// rw.WriteHeader(http.StatusNotFound)
+		http.NotFound(rw, r)
 		return
 	case sm.ErrorUnknownMetricType:
 		rw.WriteHeader(http.StatusNotImplemented)
 		return
 	}
 
+	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
 }
