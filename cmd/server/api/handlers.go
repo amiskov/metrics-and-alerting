@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -73,6 +74,12 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 
+	body, errBody := ioutil.ReadAll(r.Body)
+	if errBody != nil {
+		log.Println("Error parsing body.", body, errBody)
+	}
+	log.Println("This is BODY →", string(body))
+
 	reqMetric := models.Metrics{}
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&reqMetric)
@@ -101,8 +108,8 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Println("JSON! →", []byte(string(jbz)))
-	rw.Write([]byte(string(jbz)))
+	fmt.Println("JSON! →", string(jbz))
+	rw.Write(jbz)
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
