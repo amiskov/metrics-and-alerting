@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -80,35 +79,30 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("This is BODY →", string(body))
 
-	reqMetric := models.Metrics{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&reqMetric)
-	if err != nil {
-		log.Printf("Error while decoding metric for the response: %s", err)
-		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
-		return
-	}
-	metricType := reqMetric.MType
-	metricName := reqMetric.ID
-
-	metricValue, err := api.store.GetMetric(metricType, metricName)
-	if err != nil {
-		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
+	var reqMetric models.Metrics
+	errj := json.Unmarshal(body, &reqMetric)
+	if errj != nil {
+		log.Println("Parsing body JSON failed:", errj)
 		return
 	}
 
-	jbz, err := json.Marshal(metricValue)
+	foundMetric, err := api.store.GetMetric(reqMetric.MType, reqMetric.ID)
 	if err != nil {
-		log.Printf("Error marshalling JSON: %+v", err)
+		rw.WriteHeader(http.StatusNotFound)
+		rw.Write([]byte(`{"error": "Can't get metric ` + err.Error() + `"}`))
+		return
+	}
+
+	jbz, err := json.Marshal(foundMetric)
+	if err != nil {
+		log.Printf("Error marshalling metric: %+v", err)
 		rw.WriteHeader(http.StatusBadRequest)
 		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Println("JSON! →", string(jbz))
+	log.Println("JSON! →", string(jbz))
 	rw.Write(jbz)
 }
 
