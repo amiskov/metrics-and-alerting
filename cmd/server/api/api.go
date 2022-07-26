@@ -31,5 +31,5 @@ func New(s Storage) *metricsAPI {
 
 func (api *metricsAPI) Run(port string) {
 	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, api.Router))
+	log.Println(http.ListenAndServe(port, api.Router))
 }

@@ -41,6 +41,7 @@ func main() {
 	reporter := api.New(updater)
 
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
+	time.Sleep(5 * time.Second)
 	go updater.Run(ctx, finished, pollInterval)
 	go reporter.RunJSON(ctx, finished, reportInterval, serverURL)
 
