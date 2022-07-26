@@ -15,7 +15,7 @@ import (
 )
 
 type config struct {
-	Address        string        `env:"ADDRESS" envDefault:"http://localhost:8080"`
+	Address        string        `env:"ADDRESS" envDefault:"localhost:8080"`
 	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
 	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
 }
@@ -26,6 +26,8 @@ func main() {
 		fmt.Printf("%+v\n", err)
 		panic(err)
 	}
+	serverURL := "http://" + cfg.Address
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	updater := service.New()
@@ -33,10 +35,10 @@ func main() {
 
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
 	go updater.Run(ctx, finished, cfg.PollInterval)
-	go reporter.RunJSON(ctx, finished, cfg.ReportInterval, cfg.Address)
+	go reporter.RunJSON(ctx, finished, cfg.ReportInterval, serverURL)
 
 	log.Println("Agent has been started.")
-	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", cfg.Address, cfg.PollInterval, cfg.ReportInterval)
+	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", serverURL, cfg.PollInterval, cfg.ReportInterval)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
