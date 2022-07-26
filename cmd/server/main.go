@@ -1,24 +1,26 @@
 package main
 
 import (
-	"flag"
-	"strconv"
+	"fmt"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
+	"github.com/caarlos0/env"
 )
 
-var port string
-
-func init() {
-	// CLI options
-	serverPort := flag.Int("port", 8080, "server port")
-	port = ":" + strconv.Itoa(*serverPort)
+type config struct {
+	Address string `env:"ADDRESS" envDefault:"localhost:8080"`
 }
 
 func main() {
-	flag.Parse()
+	cfg := config{}
+	if err := env.Parse(&cfg); err != nil {
+		fmt.Printf("%+v\n", err)
+		panic(err)
+	}
+
 	storage := store.NewServerStore()
+
 	metricsAPI := api.New(storage)
-	metricsAPI.Run(port)
+	metricsAPI.Run(cfg.Address)
 }
