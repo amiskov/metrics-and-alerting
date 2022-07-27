@@ -25,6 +25,7 @@ func (api *metricsAPI) mountHandlers() {
 
 	api.Router.Route("/", func(r chi.Router) {
 		r.Get("/", api.getMetricsList)
+		r.Get("/j", api.getMetricsListJSON)
 		r.Post("/*", handleNotFound)
 	})
 }

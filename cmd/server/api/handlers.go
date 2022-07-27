@@ -48,6 +48,18 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Request) {
+	jbz, err := json.Marshal(api.store.GetAll())
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		log.Println("Error while parsing all metrics JSON.")
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(jbz)
+}
+
 func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
