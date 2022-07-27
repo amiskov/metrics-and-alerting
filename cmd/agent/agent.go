@@ -26,19 +26,20 @@ func main() {
 		fmt.Printf("%+v\n", err)
 		panic(err)
 	}
-	serverURL := "http://" + cfg.Address
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	updater := service.New()
-	reporter := api.New(updater)
-
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
 	go updater.Run(ctx, finished, cfg.PollInterval)
-	go reporter.RunJSON(ctx, finished, cfg.ReportInterval, serverURL)
+
+	reporter := api.New(updater, ctx, finished, cfg.ReportInterval, cfg.Address)
+	// go reporter.ReportWithURLParams()
+	go reporter.ReportWithJSON()
 
 	log.Println("Agent has been started.")
-	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", serverURL, cfg.PollInterval, cfg.ReportInterval)
+	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", cfg.Address,
+		cfg.PollInterval, cfg.ReportInterval)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)

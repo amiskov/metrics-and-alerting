@@ -11,15 +11,15 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-func (a *api) sendMetricsJSON(sendURL string) {
+func (a *API) sendMetricsJSON() {
 	var wg sync.WaitGroup
 
-	for _, m := range a.service.GetMetrics() {
+	for _, m := range a.updater.GetMetrics() {
 		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetricJSON(sendURL, m)
+			sendMetricJSON(a.serverURL, m)
 		}()
 	}
 

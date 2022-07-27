@@ -6,38 +6,52 @@ import (
 	"time"
 )
 
-type api struct {
-	service Service
+type API struct {
+	updater        Service
+	ctx            context.Context
+	done           chan bool
+	reportInterval time.Duration
+	serverURL      string
 }
 
-func New(s Service) *api {
-	return &api{service: s}
-}
-
-func (a *api) Run(ctx context.Context, done chan bool, reportInterval time.Duration, serverURL string) {
-	ticker := time.NewTicker(reportInterval)
-	for range ticker.C {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			log.Println("Metrics report stopped.")
-			done <- true
-		default:
-			a.sendMetrics(serverURL)
-		}
+func New(s Service, ctx context.Context, done chan bool, reportInterval time.Duration, address string) *API {
+	return &API{
+		updater:        s,
+		ctx:            ctx,
+		done:           done,
+		reportInterval: reportInterval,
+		serverURL:      "http://" + address,
 	}
 }
 
-func (a *api) RunJSON(ctx context.Context, done chan bool, reportInterval time.Duration, serverURL string) {
-	ticker := time.NewTicker(reportInterval)
+const (
+	withJSON = iota
+	withURL
+)
+
+func (a *API) ReportWithURLParams() {
+	a.runReporter(withURL)
+}
+
+func (a *API) ReportWithJSON() {
+	a.runReporter(withJSON)
+}
+
+func (a *API) runReporter(apiType int) {
+	ticker := time.NewTicker(a.reportInterval)
 	for range ticker.C {
 		select {
-		case <-ctx.Done():
+		case <-a.ctx.Done():
 			ticker.Stop()
 			log.Println("Metrics report stopped.")
-			done <- true
+			a.done <- true
 		default:
-			a.sendMetricsJSON(serverURL)
+			switch apiType {
+			case withJSON:
+				a.sendMetricsJSON()
+			case withURL:
+				a.sendMetrics()
+			}
 		}
 	}
 }

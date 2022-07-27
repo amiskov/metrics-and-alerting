@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-func (a *api) sendMetrics(sendURL string) {
+func (a *API) sendMetrics() {
 	var wg sync.WaitGroup
 
-	for _, m := range a.service.GetMetrics() {
+	for _, m := range a.updater.GetMetrics() {
 		m := m
 		wg.Add(1)
 		go func() {
@@ -28,7 +28,7 @@ func (a *api) sendMetrics(sendURL string) {
 			default:
 				log.Printf("Unknown metric type: %#v", m)
 			}
-			sendMetric(sendURL, m.MType, m.ID, val)
+			sendMetric(a.serverURL, m.MType, m.ID, val)
 		}()
 	}
 
