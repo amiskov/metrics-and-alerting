@@ -5,15 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
 	"github.com/go-chi/chi"
 )
-
-type Storage interface {
-	UpdateMetric(models.Metrics) error
-	GetMetric(mType string, mName string) (models.Metrics, error)
-	GetAllMetrics() []models.Metrics
-}
 
 type metricsAPI struct {
 	Router *chi.Mux

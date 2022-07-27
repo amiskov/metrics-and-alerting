@@ -39,7 +39,7 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 		struct {
 			Metrics []models.Metrics
 		}{
-			Metrics: api.store.GetAllMetrics(),
+			Metrics: api.store.GetAll(),
 		})
 
 	if err != nil {
@@ -52,7 +52,7 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	metricValue, err := api.store.GetMetric(metricType, metricName)
+	metricValue, err := api.store.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte(err.Error()))
@@ -86,7 +86,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foundMetric, err := api.store.GetMetric(reqMetric.MType, reqMetric.ID)
+	foundMetric, err := api.store.Get(reqMetric.MType, reqMetric.ID)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte(`{"error": "Can't get metric ` + err.Error() + `"}`))
@@ -137,7 +137,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 		Delta: &delta,
 	}
 
-	err = api.store.UpdateMetric(metricData)
+	err = api.store.Update(metricData)
 	switch err {
 	case sm.ErrorBadMetricFormat:
 		rw.WriteHeader(http.StatusBadRequest)
@@ -176,7 +176,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = api.store.UpdateMetric(metricData)
+	err = api.store.Update(metricData)
 	switch err {
 	case sm.ErrorBadMetricFormat:
 		http.Error(rw, err.Error(), http.StatusBadRequest)

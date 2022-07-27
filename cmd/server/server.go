@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/store/inmemory"
 	"github.com/caarlos0/env"
 )
 
@@ -19,7 +19,7 @@ func main() {
 		panic(err)
 	}
 
-	storage := store.NewServerStore()
+	storage := inmemory.New()
 
 	metricsAPI := api.New(storage)
 	metricsAPI.Run(cfg.Address)
