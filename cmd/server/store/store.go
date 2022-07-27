@@ -46,7 +46,7 @@ func New(cfg StoreCfg) (*store, error) {
 		}
 	}
 
-	// Preload or create metrics DB
+	// Restore from file or create metrics DB
 	metrics := make(metricsDB)
 	if shouldRestoreFromFile {
 		if err := restoreFromFile(file, metrics); err != nil {
@@ -66,13 +66,10 @@ func New(cfg StoreCfg) (*store, error) {
 			ticker := time.NewTicker(s.storeInterval)
 			defer ticker.Stop()
 			for range ticker.C {
-				select {
-				default:
-					if err := s.saveToFile(); err != nil {
-						log.Println("Failed storing to the file from ticker.", err)
-					}
-					log.Println("Metrics saved to file successfully.")
+				if err := s.saveToFile(); err != nil {
+					log.Println("Failed storing to the file from ticker.", err)
 				}
+				log.Println("Metrics saved to file successfully.")
 			}
 		}()
 	}

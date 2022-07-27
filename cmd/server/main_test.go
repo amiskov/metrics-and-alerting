@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/store/inmemory"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -74,7 +74,8 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			s := inmemory.New()
+
+			s, _ := store.New(store.StoreCfg{})
 			metricsAPI := api.New(s)
 			metricsAPI.Router.ServeHTTP(w, request)
 
