@@ -23,9 +23,13 @@ type metricsDB map[string]models.Metrics
 
 type store struct {
 	mx            *sync.Mutex
-	Metrics       metricsDB
-	StoreInterval time.Duration
-	StoreFile     *os.File
+	metrics       metricsDB
+	storeInterval time.Duration
+	file          *os.File
+}
+
+func (s *store) CloseFile() error {
+	return s.file.Close()
 }
 
 func New(cfg StoreCfg) (*store, error) {
@@ -37,7 +41,6 @@ func New(cfg StoreCfg) (*store, error) {
 	var file *os.File
 	if shouldUseStoreFile {
 		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
-		defer file.Close()
 		if err != nil {
 			return nil, err
 		}
@@ -51,12 +54,30 @@ func New(cfg StoreCfg) (*store, error) {
 		}
 	}
 
-	return &store{
+	s := store{
 		mx:            new(sync.Mutex),
-		StoreInterval: cfg.StoreInterval,
-		StoreFile:     file,
-		Metrics:       metrics,
-	}, nil
+		storeInterval: cfg.StoreInterval,
+		file:          file,
+		metrics:       metrics,
+	}
+
+	if s.storeInterval != 0 {
+		go func() {
+			ticker := time.NewTicker(s.storeInterval)
+			defer ticker.Stop()
+			for range ticker.C {
+				select {
+				default:
+					if err := s.saveToFile(); err != nil {
+						log.Println("Failed storing to the file from ticker.", err)
+					}
+					log.Println("Metrics saved to file successfully.")
+				}
+			}
+		}()
+	}
+
+	return &s, nil
 }
 
 func restoreFromFile(file *os.File, metrics metricsDB) error {
@@ -71,10 +92,30 @@ func restoreFromFile(file *os.File, metrics metricsDB) error {
 		return nil
 	case io.EOF:
 		log.Printf("File is empty, nothing to restore.")
-		return nil
+		return nil // empty file is not an error
 	default:
 		return err
 	}
+}
+
+func (s *store) saveToFile() error {
+	metrics := s.GetAll()
+
+	if err := s.file.Truncate(0); err != nil {
+		log.Printf("Can't truncate file contents: %s", err)
+		return err
+	}
+
+	if _, err := s.file.Seek(0, 0); err != nil {
+		log.Printf("Can't move the caret to the beginning of the file: %s", err)
+		return err
+	}
+
+	if err := json.NewEncoder(s.file).Encode(metrics); err != nil {
+		log.Printf("Can't store to file %s. Error: %s", s.file.Name(), err)
+		return err
+	}
+	return nil
 }
 
 func (s *store) Update(m models.Metrics) error {
@@ -83,15 +124,22 @@ func (s *store) Update(m models.Metrics) error {
 
 	switch m.MType {
 	case "counter":
-		if _, ok := s.Metrics[m.ID]; ok {
-			*s.Metrics[m.ID].Delta += *m.Delta
+		if _, ok := s.metrics[m.ID]; ok {
+			*s.metrics[m.ID].Delta += *m.Delta
 		} else {
-			s.Metrics[m.ID] = m
+			s.metrics[m.ID] = m
 		}
 	case "gauge":
-		s.Metrics[m.ID] = m
+		s.metrics[m.ID] = m
 	default:
 		return sm.ErrorUnknownMetricType
+	}
+
+	// Save to disk immediately
+	if s.storeInterval == 0 {
+		if err := s.saveToFile(); err != nil {
+			log.Printf("Can't save metrics to file on Update. %s", err)
+		}
 	}
 
 	return nil
@@ -99,7 +147,7 @@ func (s *store) Update(m models.Metrics) error {
 
 func (s store) GetAll() []models.Metrics {
 	var metrics []models.Metrics
-	for _, m := range s.Metrics {
+	for _, m := range s.metrics {
 		metrics = append(metrics, m)
 	}
 	sort.Slice(metrics, func(i, j int) bool {
@@ -112,7 +160,7 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	metric, ok := s.Metrics[metricName]
+	metric, ok := s.metrics[metricName]
 	if !ok {
 		return metric, sm.ErrorMetricNotFound
 	}

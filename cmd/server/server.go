@@ -35,6 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("Creating server store failed.", err)
 	}
+	defer storage.CloseFile()
 
 	metricsAPI := api.New(storage)
 	metricsAPI.Run(cfg.Address)
