@@ -1,6 +1,9 @@
 package store
 
 import (
+	"encoding/json"
+	"io"
+	"log"
 	"os"
 	"sort"
 	"sync"
@@ -28,11 +31,12 @@ type store struct {
 func New(cfg StoreCfg) (*store, error) {
 	shouldUseStoreFile := cfg.StoreFile != ""
 	shouldRestoreFromFile := shouldUseStoreFile && cfg.Restore
+	var err error
 
 	// File Storage
 	var file *os.File
 	if shouldUseStoreFile {
-		file, err := os.OpenFile(cfg.StoreFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
+		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
 		defer file.Close()
 		if err != nil {
 			return nil, err
@@ -40,11 +44,11 @@ func New(cfg StoreCfg) (*store, error) {
 	}
 
 	// Preload or create metrics DB
-	var metrics metricsDB
+	metrics := make(metricsDB)
 	if shouldRestoreFromFile {
-		metrics = restoreFromFile(file)
-	} else {
-		metrics = make(metricsDB)
+		if err := restoreFromFile(file, metrics); err != nil {
+			log.Fatalf("Can't restore from a file %s. Error: %s", cfg.StoreFile, err)
+		}
 	}
 
 	return &store{
@@ -55,9 +59,22 @@ func New(cfg StoreCfg) (*store, error) {
 	}, nil
 }
 
-func restoreFromFile(file *os.File) map[string]models.Metrics {
-	// TODO: Load from file
-	return make(metricsDB)
+func restoreFromFile(file *os.File, metrics metricsDB) error {
+	storedMetrics := []models.Metrics{}
+	dec := json.NewDecoder(file)
+	err := dec.Decode(&storedMetrics)
+	switch err {
+	case nil:
+		for _, m := range storedMetrics {
+			metrics[m.ID] = m
+		}
+		return nil
+	case io.EOF:
+		log.Printf("File is empty, nothing to restore.")
+		return nil
+	default:
+		return err
+	}
 }
 
 func (s *store) Update(m models.Metrics) error {
