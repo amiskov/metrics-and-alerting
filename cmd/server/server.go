@@ -34,7 +34,7 @@ type config struct {
 
 func (cfg *config) UpdateFromCLI() {
 	cliAddress := flag.String("a", defaultAddress, "Server address")
-	cliRestore := flag.Bool("a", defaultRestore, "Should server restore on start?")
+	cliRestore := flag.Bool("r", defaultRestore, "Should server restore on start?")
 	cliStoreInterval := flag.Duration("i", defaultStoreInterval, "Report interval in seconds.")
 	cliStoreFile := flag.String("f", defaultStoreFile, "Server address.")
 
