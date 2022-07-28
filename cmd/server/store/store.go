@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -17,6 +18,8 @@ type StoreCfg struct {
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
+	Ctx           context.Context
+	Finished      chan bool
 }
 
 type metricsDB map[string]models.Metrics
@@ -35,6 +38,7 @@ func (s *store) CloseFile() error {
 func New(cfg StoreCfg) (*store, error) {
 	shouldUseStoreFile := cfg.StoreFile != ""
 	shouldRestoreFromFile := shouldUseStoreFile && cfg.Restore
+
 	var err error
 
 	// File Storage
@@ -61,18 +65,35 @@ func New(cfg StoreCfg) (*store, error) {
 		metrics:       metrics,
 	}
 
-	if s.storeInterval != 0 {
-		go func() {
-			ticker := time.NewTicker(s.storeInterval)
-			defer ticker.Stop()
-			for range ticker.C {
-				if err := s.saveToFile(); err != nil {
-					log.Println("Failed storing to the file from ticker.", err)
-				}
-				log.Println("Metrics saved to file successfully.")
-			}
-		}()
+	save := func() {
+		if err := s.saveToFile(); err != nil {
+			log.Println("Failed saving metrics to file.", err)
+		}
+		log.Println("Metrics saved to file successfully.")
 	}
+
+	var ticker *time.Ticker
+
+	go func() {
+		if s.storeInterval != 0 {
+			ticker = time.NewTicker(s.storeInterval)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				save()
+			}
+		}
+	}()
+
+	go func() {
+		<-cfg.Ctx.Done()
+		if ticker != nil {
+			ticker.Stop()
+		}
+		log.Printf("Saving timer stopped.")
+		save()
+		cfg.Finished <- true
+	}()
 
 	return &s, nil
 }

@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
@@ -25,10 +30,15 @@ func main() {
 		log.Fatalln("Parsing CLI params failed.", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	finished := make(chan bool)
+
 	storage, err := store.New(store.StoreCfg{
 		StoreFile:     cfg.StoreFile,
 		StoreInterval: cfg.StoreInterval,
 		Restore:       cfg.Restore,
+		Ctx:           ctx,
+		Finished:      finished,
 	})
 	if err != nil {
 		log.Fatalln("Creating server store failed.", err)
@@ -36,5 +46,21 @@ func main() {
 	defer storage.CloseFile()
 
 	metricsAPI := api.New(storage)
-	metricsAPI.Run(cfg.Address)
+	go metricsAPI.Run(cfg.Address)
+
+	// Managing user signals
+	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		syscall.SIGQUIT)
+
+	<-osSignalCtx.Done()
+	fmt.Println("Terminating server, please wait...")
+	cancel()
+	stopBySyscall()
+
+	<-finished
+	close(finished)
+	fmt.Println("Server has been successfully terminated. Bye!")
+	os.Exit(0)
 }
