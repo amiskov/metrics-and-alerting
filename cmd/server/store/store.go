@@ -185,6 +185,8 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 
 	metric, ok := s.metrics[metricName]
 	if !ok {
+		log.Println("!!! All metrics")
+		log.Println(s.GetAll())
 		return metric, sm.ErrorMetricNotFound
 	}
 	return metric, nil
