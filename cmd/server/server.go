@@ -51,7 +51,7 @@ func main() {
 	defer storage.CloseFile()
 
 	metricsAPI := api.New(storage)
-	go metricsAPI.Run(cfg.Address)
+	metricsAPI.Run(cfg.Address)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),

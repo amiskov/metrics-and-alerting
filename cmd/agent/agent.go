@@ -41,8 +41,8 @@ func main() {
 	go updater.Run(ctx, finished, cfg.PollInterval)
 
 	reporter := api.New(updater, ctx, finished, cfg.ReportInterval, cfg.Address)
-	go reporter.ReportWithURLParams()
-	go reporter.ReportWithJSON()
+	// go reporter.ReportWithURLParams()
+	reporter.ReportWithJSON()
 
 	log.Println("Agent has been started.")
 	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", cfg.Address,
