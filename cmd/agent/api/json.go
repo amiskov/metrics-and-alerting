@@ -11,7 +11,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-func (a *API) sendMetricsJSON() {
+func (a *api) sendMetricsJSON() {
 	var wg sync.WaitGroup
 
 	for _, m := range a.updater.GetMetrics() {

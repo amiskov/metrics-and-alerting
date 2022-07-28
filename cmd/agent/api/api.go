@@ -4,9 +4,20 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-type API struct {
+const (
+	withJSON = iota
+	withURL
+)
+
+type Service interface {
+	GetMetrics() []models.Metrics
+}
+
+type api struct {
 	updater        Service
 	ctx            context.Context
 	done           chan bool
@@ -14,8 +25,8 @@ type API struct {
 	serverURL      string
 }
 
-func New(s Service, ctx context.Context, done chan bool, reportInterval time.Duration, address string) *API {
-	return &API{
+func New(s Service, ctx context.Context, done chan bool, reportInterval time.Duration, address string) *api {
+	return &api{
 		updater:        s,
 		ctx:            ctx,
 		done:           done,
@@ -24,20 +35,15 @@ func New(s Service, ctx context.Context, done chan bool, reportInterval time.Dur
 	}
 }
 
-const (
-	withJSON = iota
-	withURL
-)
-
-func (a *API) ReportWithURLParams() {
+func (a *api) ReportWithURLParams() {
 	a.runReporter(withURL)
 }
 
-func (a *API) ReportWithJSON() {
+func (a *api) ReportWithJSON() {
 	a.runReporter(withJSON)
 }
 
-func (a *API) runReporter(apiType int) {
+func (a *api) runReporter(apiType int) {
 	ticker := time.NewTicker(a.reportInterval)
 	for range ticker.C {
 		select {

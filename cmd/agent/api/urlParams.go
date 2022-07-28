@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (a *API) sendMetrics() {
+func (a *api) sendMetrics() {
 	var wg sync.WaitGroup
 
 	for _, m := range a.updater.GetMetrics() {
