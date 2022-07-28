@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -18,8 +17,6 @@ type StoreCfg struct {
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
-	Ctx           context.Context
-	Finished      chan bool
 }
 
 type metricsDB map[string]models.Metrics
@@ -84,16 +81,6 @@ func New(cfg StoreCfg) (*store, error) {
 				save()
 			}
 		}
-	}()
-
-	go func() {
-		<-cfg.Ctx.Done()
-		if ticker != nil {
-			ticker.Stop()
-		}
-		log.Printf("Saving timer stopped.")
-		save()
-		cfg.Finished <- true
 	}()
 
 	return &s, nil
