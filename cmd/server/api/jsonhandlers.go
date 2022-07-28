@@ -29,17 +29,19 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if errBody != nil {
 		log.Println("Error parsing body.", body, errBody)
 	}
-	log.Println("This is BODY →", string(body))
 
 	var reqMetric models.Metrics
 	errj := json.Unmarshal(body, &reqMetric)
 	if errj != nil {
 		log.Println("Parsing body JSON failed:", errj)
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte(`{"error": "Can't parse body request ` + errj.Error() + `"}`))
 		return
 	}
 
 	foundMetric, err := api.store.Get(reqMetric.MType, reqMetric.ID)
 	if err != nil {
+		log.Printf("Metric not found: %s", errj)
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte(`{"error": "Can't get metric ` + err.Error() + `"}`))
 		return
@@ -54,7 +56,6 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	log.Println("JSON! →", string(jbz))
 	rw.Write(jbz)
 }
 

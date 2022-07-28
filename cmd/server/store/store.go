@@ -179,6 +179,10 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
+	if metricType != "counter" && metricType != "gauge" {
+		return models.Metrics{}, sm.ErrorMetricNotFound
+	}
+
 	metric, ok := s.metrics[metricName]
 	if !ok {
 		return metric, sm.ErrorMetricNotFound
