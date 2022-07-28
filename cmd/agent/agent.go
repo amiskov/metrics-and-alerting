@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -14,10 +15,36 @@ import (
 	"github.com/caarlos0/env"
 )
 
+const (
+	defaultAddress        = "localhost:8080"
+	defaultReportInterval = time.Duration(10 * time.Second)
+	defaultPollInterval   = time.Duration(2 * time.Second)
+)
+
 type config struct {
-	Address        string        `env:"ADDRESS" envDefault:"localhost:8080"`
-	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
-	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
+	Address        string        `env:"ADDRESS" envDefault:"nope"`
+	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"-1s"`
+	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"-1s"`
+}
+
+func (cfg *config) updateFromCLI() {
+	cliAddress := flag.String("a", defaultAddress, "server address")
+	cliReportInterval := flag.Duration("r", defaultReportInterval, "report interval in seconds")
+	cliPollInterval := flag.Duration("p", defaultPollInterval, "poll interval in seconds")
+
+	flag.Parse()
+
+	notSetDuration := time.Duration(-1 * time.Second)
+
+	if cfg.Address == "nope" || *cliAddress != defaultAddress {
+		cfg.Address = *cliAddress
+	}
+	if cfg.ReportInterval == notSetDuration || *cliReportInterval != defaultReportInterval {
+		cfg.ReportInterval = *cliReportInterval
+	}
+	if cfg.PollInterval == notSetDuration || *cliPollInterval != defaultPollInterval {
+		cfg.PollInterval = *cliPollInterval
+	}
 }
 
 func main() {
@@ -26,6 +53,7 @@ func main() {
 		fmt.Printf("%+v\n", err)
 		panic(err)
 	}
+	cfg.updateFromCLI()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
