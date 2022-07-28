@@ -15,23 +15,27 @@ import (
 )
 
 type config struct {
-	Address       string
-	StoreInterval time.Duration
-	StoreFile     string
-	Restore       bool
+	Address             string
+	StoreInterval       time.Duration
+	StoreFile           string
+	Restore             bool
+	restoreChangedByCli bool
 }
 
 func main() {
 	cfg := config{
 		// Config Defaults
-		Address:       "localhost:8080",
-		Restore:       true,
-		StoreInterval: time.Duration(300 * time.Second),
-		StoreFile:     "/tmp/devops-metrics-db.json",
+		Address:             "localhost:8080",
+		Restore:             true,
+		StoreInterval:       time.Duration(300 * time.Second),
+		StoreFile:           "/tmp/devops-metrics-db.json",
+		restoreChangedByCli: false,
 	}
 	cfg.UpdateFromCLI()
 	cfg.UpdateFromEnv()
 	log.Printf("Config is: %#v", cfg)
+
+	os.Exit(0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
@@ -69,17 +73,24 @@ func main() {
 }
 
 func (cfg *config) UpdateFromCLI() {
-	cliAddress := flag.String("a", cfg.Address, "Server address.")
-	cliRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
-	cliStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
-	cliStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
+	flagAddress := flag.String("a", cfg.Address, "Server address.")
+	flagRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
+	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
+	flagStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
 
 	flag.Parse()
 
-	cfg.Address = *cliAddress
-	cfg.Restore = *cliRestore
-	cfg.StoreInterval = *cliStoreInterval
-	cfg.StoreFile = *cliStoreFile
+	cfg.Address = *flagAddress
+
+	log.Println("Flag -r is", flagRestore)
+	if cfg.Restore != *flagRestore {
+		cfg.Restore = *flagRestore
+		cfg.restoreChangedByCli = true
+	}
+	log.Println("Updated cfg.Restore is ", cfg.Restore)
+
+	cfg.StoreInterval = *flagStoreInterval
+	cfg.StoreFile = *flagStoreFile
 }
 
 func (cfg *config) UpdateFromEnv() {
