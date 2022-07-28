@@ -80,7 +80,7 @@ func (cfg *config) UpdateFromCLI() {
 
 	cfg.Address = *flagAddress
 
-	log.Println("Flag -r is", flagRestore)
+	log.Println("Flag -r is", *flagRestore)
 	if cfg.Restore != *flagRestore {
 		cfg.Restore = *flagRestore
 		cfg.restoreChangedByCli = true
