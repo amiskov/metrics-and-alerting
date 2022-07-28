@@ -35,8 +35,6 @@ func main() {
 	cfg.UpdateFromEnv()
 	log.Printf("Config is: %#v", cfg)
 
-	os.Exit(0)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
 
