@@ -124,6 +124,7 @@ func (s *store) saveToFile() error {
 		log.Printf("Can't truncate file contents: %s", err)
 		return err
 	}
+	log.Println("!!! File was truncated.")
 
 	if _, err := s.file.Seek(0, 0); err != nil {
 		log.Printf("Can't move the caret to the beginning of the file: %s", err)
@@ -134,6 +135,7 @@ func (s *store) saveToFile() error {
 		log.Printf("Can't store to file %s. Error: %s", s.file.Name(), err)
 		return err
 	}
+	log.Println("!!! File was updated.")
 	return nil
 }
 
@@ -165,6 +167,9 @@ func (s *store) Update(m models.Metrics) error {
 }
 
 func (s store) GetAll() []models.Metrics {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
 	var metrics []models.Metrics
 	for _, m := range s.metrics {
 		metrics = append(metrics, m)
