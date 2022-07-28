@@ -22,9 +22,7 @@ type config struct {
 func main() {
 	cfg := config{}
 	if err := env.Parse(&cfg); err != nil {
-		if err != nil {
-			log.Fatalln("Parsing CLI params failed.", err)
-		}
+		log.Fatalln("Parsing CLI params failed.", err)
 	}
 
 	storage, err := store.New(store.StoreCfg{
