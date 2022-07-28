@@ -33,7 +33,6 @@ func main() {
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()
 	log.Printf("Config is: %#v", cfg)
-	os.Exit(0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
