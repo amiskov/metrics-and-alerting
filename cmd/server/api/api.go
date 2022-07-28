@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
@@ -30,7 +30,7 @@ func New(s Storage) *metricsAPI {
 }
 
 func (api *metricsAPI) Run(address string) {
-	fmt.Printf("Server has been started at http://%s\n", address)
+	log.Printf("Server has been started at http://%s\n", address)
 
 	server := &http.Server{
 		Addr:    address,
@@ -39,8 +39,8 @@ func (api *metricsAPI) Run(address string) {
 
 	err := server.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
-		fmt.Printf("server closed\n")
+		log.Printf("server closed\n")
 	} else if err != nil {
-		fmt.Printf("error listening for server: %s\n", err)
+		log.Printf("error listening for server: %s\n", err)
 	}
 }

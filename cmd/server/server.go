@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -32,6 +31,7 @@ func main() {
 	}
 	cfg.UpdateFromCLI()
 	cfg.UpdateFromEnv()
+	log.Printf("Config is: %#v", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
@@ -58,13 +58,13 @@ func main() {
 		syscall.SIGQUIT)
 
 	<-osSignalCtx.Done()
-	fmt.Println("Terminating server, please wait...")
+	log.Println("Terminating server, please wait...")
 	cancel()
 	stopBySyscall()
 
 	<-finished
 	close(finished)
-	fmt.Println("Server has been successfully terminated. Bye!")
+	log.Println("Server has been successfully terminated. Bye!")
 	os.Exit(0)
 }
 

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -23,7 +22,7 @@ func (a *api) sendMetrics() {
 			case "gauge":
 				val = strconv.FormatFloat(float64(*m.Value), 'f', 3, 64)
 			case "counter":
-				fmt.Printf("%v (%v): %+v\n", m.ID, m.MType, m.Value)
+				log.Printf("%v (%v): %+v\n", m.ID, m.MType, m.Value)
 				val = strconv.FormatInt(int64(*m.Delta), 10)
 			default:
 				log.Printf("Unknown metric type: %#v", m)

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -50,7 +49,7 @@ func (cfg *config) updateFromCLI() {
 func main() {
 	cfg := config{}
 	if err := env.Parse(&cfg); err != nil {
-		fmt.Printf("%+v\n", err)
+		log.Printf("%+v\n", err)
 		panic(err)
 	}
 	cfg.updateFromCLI()
@@ -73,7 +72,7 @@ func main() {
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	<-osSignalCtx.Done()
-	fmt.Println("Terminating agent, please wait...")
+	log.Println("Terminating agent, please wait...")
 	cancel() // stop processes
 	stopBySyscall()
 
@@ -81,6 +80,6 @@ func main() {
 	<-finished
 	close(finished)
 
-	fmt.Println("Agent has been terminated. Bye!")
+	log.Println("Agent has been terminated. Bye!")
 	os.Exit(0)
 }
