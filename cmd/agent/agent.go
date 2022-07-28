@@ -14,45 +14,26 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
-const (
-	defaultAddress        = "localhost:8080"
-	defaultReportInterval = time.Duration(10 * time.Second)
-	defaultPollInterval   = time.Duration(2 * time.Second)
-)
-
 type config struct {
-	Address        string        `env:"ADDRESS" envDefault:"nope"`
-	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"-1s"`
-	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"-1s"`
-}
-
-func (cfg *config) updateFromCLI() {
-	cliAddress := flag.String("a", defaultAddress, "server address")
-	cliReportInterval := flag.Duration("r", defaultReportInterval, "report interval in seconds")
-	cliPollInterval := flag.Duration("p", defaultPollInterval, "poll interval in seconds")
-
-	flag.Parse()
-
-	notSetDuration := time.Duration(-1 * time.Second)
-
-	if cfg.Address == "nope" || *cliAddress != defaultAddress {
-		cfg.Address = *cliAddress
-	}
-	if cfg.ReportInterval == notSetDuration || *cliReportInterval != defaultReportInterval {
-		cfg.ReportInterval = *cliReportInterval
-	}
-	if cfg.PollInterval == notSetDuration || *cliPollInterval != defaultPollInterval {
-		cfg.PollInterval = *cliPollInterval
-	}
+	Address        string
+	ReportInterval time.Duration
+	PollInterval   time.Duration
 }
 
 func main() {
-	cfg := config{}
+	cfg := config{
+		Address:        "localhost:8080",
+		ReportInterval: time.Duration(10 * time.Second),
+		PollInterval:   time.Duration(2 * time.Second),
+	}
 	if err := env.Parse(&cfg); err != nil {
 		log.Printf("%+v\n", err)
 		panic(err)
 	}
-	cfg.updateFromCLI()
+	cfg.updateFromFlags()
+	cfg.updateFromEnv()
+	log.Printf("Config is: %#v", cfg)
+	os.Exit(0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -61,7 +42,7 @@ func main() {
 	go updater.Run(ctx, finished, cfg.PollInterval)
 
 	reporter := api.New(updater, ctx, finished, cfg.ReportInterval, cfg.Address)
-	// go reporter.ReportWithURLParams()
+	go reporter.ReportWithURLParams()
 	go reporter.ReportWithJSON()
 
 	log.Println("Agent has been started.")
@@ -82,4 +63,36 @@ func main() {
 
 	log.Println("Agent has been terminated. Bye!")
 	os.Exit(0)
+}
+
+func (cfg *config) updateFromFlags() {
+	flagAddress := flag.String("a", cfg.Address, "Server address.")
+	flagReportInterval := flag.Duration("r", cfg.ReportInterval, "Report interval in seconds.")
+	flagPollInterval := flag.Duration("p", cfg.PollInterval, "Poll interval in seconds.")
+
+	flag.Parse()
+
+	cfg.Address = *flagAddress
+	cfg.ReportInterval = *flagReportInterval
+	cfg.PollInterval = *flagPollInterval
+}
+
+func (cfg *config) updateFromEnv() {
+	if addr := os.Getenv("ADDRESS"); addr != "" {
+		cfg.Address = addr
+	}
+	if dur := os.Getenv("POLL_INTERVAL"); dur != "" {
+		pollInterval, err := time.ParseDuration(dur)
+		if err != nil {
+			log.Fatalf("Can't parse %s: %s", dur, err.Error())
+		}
+		cfg.PollInterval = pollInterval
+	}
+	if dur := os.Getenv("REPORT_INTERVAL"); dur != "" {
+		reportInterval, err := time.ParseDuration(dur)
+		if err != nil {
+			log.Fatalf("Can't parse %s: %s", dur, err.Error())
+		}
+		cfg.ReportInterval = reportInterval
+	}
 }

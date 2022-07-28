@@ -31,7 +31,7 @@ func main() {
 		StoreFile:           "/tmp/devops-metrics-db.json",
 		restoreChangedByCli: false,
 	}
-	cfg.UpdateFromCLI()
+	cfg.UpdateFromFlags()
 	cfg.UpdateFromEnv()
 	log.Printf("Config is: %#v", cfg)
 
@@ -70,7 +70,7 @@ func main() {
 	os.Exit(0)
 }
 
-func (cfg *config) UpdateFromCLI() {
+func (cfg *config) UpdateFromFlags() {
 	flagAddress := flag.String("a", cfg.Address, "Server address.")
 	flagRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
 	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
