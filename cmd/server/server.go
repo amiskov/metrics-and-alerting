@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -14,14 +15,45 @@ import (
 	"github.com/caarlos0/env"
 )
 
+const (
+	defaultAddress       = "localhost:8080"
+	defaultRestore       = true
+	defaultStoreInterval = time.Duration(300 * time.Second)
+	defaultStoreFile     = "/tmp/devops-metrics-db.json"
+)
+
 type config struct {
-	Address string `env:"ADDRESS" envDefault:"localhost:8080"`
+	Address string `env:"ADDRESS" envDefault:"nope"`
 	// 0s STORE_INTERVAL stores metrics immediately.
-	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"300s"`
+	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"-1s"`
 	// Don't store metrics if `StoreFile` is empty.
-	StoreFile string `env:"STORE_FILE" envDefault:"/tmp/devops-metrics-db.json"`
+	StoreFile string `env:"STORE_FILE" envDefault:"nope"`
 	// Load previously saved metrics from file if `Restore` is true.
-	Restore bool `env:"RESTORE" envDefault:"true"`
+	Restore bool `env:"RESTORE" envDefault:"false"`
+}
+
+func (cfg *config) UpdateFromCLI() {
+	cliAddress := flag.String("a", defaultAddress, "Server address")
+	cliRestore := flag.Bool("a", defaultRestore, "Should server restore on start?")
+	cliStoreInterval := flag.Duration("i", defaultStoreInterval, "Report interval in seconds.")
+	cliStoreFile := flag.String("f", defaultStoreFile, "Server address.")
+
+	flag.Parse()
+
+	notSetDuration := time.Duration(-1 * time.Second)
+
+	if cfg.Address == "nope" || *cliAddress != defaultAddress {
+		cfg.Address = *cliAddress
+	}
+	if cfg.Restore == false || *cliRestore != defaultRestore {
+		cfg.Restore = *cliRestore
+	}
+	if cfg.StoreInterval == notSetDuration || *cliStoreInterval != defaultStoreInterval {
+		cfg.StoreInterval = *cliStoreInterval
+	}
+	if cfg.StoreFile == "nope" || *cliStoreFile != defaultStoreFile {
+		cfg.StoreFile = *cliStoreFile
+	}
 }
 
 func main() {
@@ -29,6 +61,7 @@ func main() {
 	if err := env.Parse(&cfg); err != nil {
 		log.Fatalln("Parsing CLI params failed.", err)
 	}
+	cfg.UpdateFromCLI()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
