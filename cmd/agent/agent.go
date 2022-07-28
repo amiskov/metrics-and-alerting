@@ -12,7 +12,7 @@ import (
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/service"
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 )
 
 const (

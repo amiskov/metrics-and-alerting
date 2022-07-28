@@ -56,6 +56,7 @@ func New(cfg StoreCfg) (*store, error) {
 		if err := restoreFromFile(file, metrics); err != nil {
 			log.Fatalf("Can't restore from a file %s. Error: %s", cfg.StoreFile, err)
 		}
+		log.Printf("Metrics data restored from from %s", cfg.StoreFile)
 	}
 
 	s := store{
