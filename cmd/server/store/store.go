@@ -45,7 +45,6 @@ func New(cfg StoreCfg) (*store, error) {
 	var file *os.File
 	if shouldUseStoreFile {
 		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
-		log.Printf("File is %s\n", file.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +56,7 @@ func New(cfg StoreCfg) (*store, error) {
 		if err := restoreFromFile(file, metrics); err != nil {
 			log.Fatalf("Can't restore from a file %s. Error: %s", cfg.StoreFile, err)
 		}
-		log.Printf("Metrics data restored from from %s", cfg.StoreFile)
+		log.Printf("Metrics data restored from %s", cfg.StoreFile)
 	}
 
 	s := store{
@@ -72,7 +71,7 @@ func New(cfg StoreCfg) (*store, error) {
 			log.Println("Failed saving metrics to file.", err)
 			return
 		}
-		log.Println("Metrics saved to file successfully.")
+		log.Printf("Metrics successfully saved to `%s`.", s.file.Name())
 	}
 
 	var ticker *time.Ticker
@@ -81,7 +80,6 @@ func New(cfg StoreCfg) (*store, error) {
 		if s.storeInterval != 0 {
 			ticker = time.NewTicker(s.storeInterval)
 			defer ticker.Stop()
-
 			for range ticker.C {
 				save()
 			}
@@ -93,7 +91,7 @@ func New(cfg StoreCfg) (*store, error) {
 		if ticker != nil {
 			ticker.Stop()
 		}
-		log.Printf("Saving timer stopped.")
+		log.Println("Saving timer stopped.")
 		save()
 		cfg.Finished <- true
 	}()
@@ -112,7 +110,7 @@ func restoreFromFile(file *os.File, metrics metricsDB) error {
 		}
 		return nil
 	case io.EOF:
-		log.Printf("File is empty, nothing to restore.")
+		log.Println("File is empty, nothing to restore.")
 		return nil // empty file is not an error
 	default:
 		return err
@@ -121,29 +119,26 @@ func restoreFromFile(file *os.File, metrics metricsDB) error {
 
 func (s *store) saveToFile() error {
 	if _, err := s.file.Stat(); err != nil {
-		log.Printf("File is invalid, skip saving. Error: %s", err)
+		log.Println("Can't save to file:", err)
 		return err
 	}
 
 	metrics := s.GetAll()
 
 	if err := s.file.Truncate(0); err != nil {
-		log.Printf("Can't truncate file contents: %s", err)
+		log.Println("Can't truncate file contents:", err)
 		return err
 	}
-	log.Println("OK: File was truncated.")
 
 	if _, err := s.file.Seek(0, 0); err != nil {
-		log.Printf("Can't move the caret to the beginning of the file: %s", err)
+		log.Println("Can't set the file offset:", err)
 		return err
 	}
-	log.Println("OK: File caret is pointed to the beginning.")
 
 	if err := json.NewEncoder(s.file).Encode(metrics); err != nil {
-		log.Printf("Can't store to file %s. Error: %s", s.file.Name(), err)
+		log.Printf("Can't store to file `%s`: %s.\n", s.file.Name(), err)
 		return err
 	}
-	log.Println("OK: File was updated.")
 	return nil
 }
 
@@ -167,7 +162,7 @@ func (s *store) Update(m models.Metrics) error {
 	// Save to disk immediately
 	if s.storeInterval == 0 {
 		if err := s.saveToFile(); err != nil {
-			log.Printf("Can't save metrics to file on Update. %s", err)
+			log.Println("Can't save metrics to file on Update:", err)
 		}
 	}
 

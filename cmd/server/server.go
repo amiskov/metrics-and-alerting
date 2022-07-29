@@ -15,49 +15,51 @@ import (
 )
 
 type config struct {
-	Address             string
-	StoreInterval       time.Duration
-	StoreFile           string
-	Restore             bool
-	restoreChangedByCli bool
+	Address       string
+	StoreInterval time.Duration
+	StoreFile     string
+	Restore       bool
 }
 
 func main() {
-	cfg := config{
-		// Config Defaults
-		Address:             "localhost:8080",
-		Restore:             true,
-		StoreInterval:       time.Duration(300 * time.Second),
-		StoreFile:           "/tmp/devops-metrics-db.json",
-		restoreChangedByCli: false,
+	envCfg := config{
+		// Defaults
+		Address:       "localhost:8080",
+		Restore:       true,
+		StoreInterval: time.Duration(300 * time.Second),
+		StoreFile:     "/tmp/devops-metrics-db.json",
 	}
-	cfg.UpdateFromFlags()
-	cfg.UpdateFromEnv()
-	log.Printf("Config is: %#v", cfg)
+	envCfg.UpdateFromFlags()
+	envCfg.UpdateFromEnv()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
 
-	storage, err := store.New(store.StoreCfg{
-		StoreFile:     cfg.StoreFile,
-		StoreInterval: cfg.StoreInterval,
-		Restore:       cfg.Restore,
+	storeCfg := store.StoreCfg{
+		StoreFile:     envCfg.StoreFile,
+		StoreInterval: envCfg.StoreInterval,
+		Restore:       envCfg.Restore,
 		Ctx:           ctx,
-		Finished:      finished,
-	})
+		Finished:      finished, // to make sure we wrote the data while terminating
+	}
+
+	storage, err := store.New(storeCfg)
 	if err != nil {
-		log.Fatalln("Creating server store failed.", err)
+		log.Fatalln("Can't init server store:", err)
 	}
 	defer storage.CloseFile()
+	log.Printf("Server store created with config: %+v", envCfg)
 
 	metricsAPI := api.New(storage)
-	metricsAPI.Run(cfg.Address)
+	go metricsAPI.Run(envCfg.Address)
+	log.Printf("Serving at http://%s\n", envCfg.Address)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),
 		syscall.SIGTERM,
 		syscall.SIGINT,
-		syscall.SIGQUIT)
+		syscall.SIGQUIT,
+	)
 
 	<-osSignalCtx.Done()
 	log.Println("Terminating server, please wait...")
@@ -79,16 +81,7 @@ func (cfg *config) UpdateFromFlags() {
 	flag.Parse()
 
 	cfg.Address = *flagAddress
-
-	log.Println("Flag -r is:", *flagRestore)
-	log.Println("ENV RESTORE is:", os.Getenv("RESTORE"))
-
-	if cfg.Restore != *flagRestore {
-		cfg.Restore = *flagRestore
-		cfg.restoreChangedByCli = true
-	}
-	log.Println("Updated cfg.Restore is ", cfg.Restore)
-
+	cfg.Restore = *flagRestore
 	cfg.StoreInterval = *flagStoreInterval
 	cfg.StoreFile = *flagStoreFile
 }
@@ -97,24 +90,20 @@ func (cfg *config) UpdateFromEnv() {
 	if addr, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Address = addr
 	}
-
-	if f, ok := os.LookupEnv("STORE_FILE"); ok {
-		// STORE_FILE may be empty string (which means "don't store metrics to file")
-		cfg.StoreFile = f
+	if file, ok := os.LookupEnv("STORE_FILE"); ok {
+		cfg.StoreFile = file
 	}
-
-	if r, ok := os.LookupEnv("RESTORE"); ok {
-		restore, err := strconv.ParseBool(r)
+	if restoreEnv, ok := os.LookupEnv("RESTORE"); ok {
+		restore, err := strconv.ParseBool(restoreEnv)
 		if err != nil {
-			log.Fatalf("Can't parse %s env var: %s", r, err.Error())
+			log.Fatalf("Can't parse %s env var: %s", restoreEnv, err.Error())
 		}
 		cfg.Restore = restore
 	}
-
-	if dur, ok := os.LookupEnv("STORE_INTERVAL"); ok {
-		storeInterval, err := time.ParseDuration(dur)
+	if intervalEnv, ok := os.LookupEnv("STORE_INTERVAL"); ok {
+		storeInterval, err := time.ParseDuration(intervalEnv)
 		if err != nil {
-			log.Fatalf("Can't parse %s env var: %s", dur, err.Error())
+			log.Fatalf("Can't parse %s env var: %s", intervalEnv, err.Error())
 		}
 		cfg.StoreInterval = storeInterval
 	}
