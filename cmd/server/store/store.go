@@ -189,14 +189,14 @@ func (s store) GetAll() []models.Metrics {
 }
 
 func (s store) Get(metricType string, metricName string) (models.Metrics, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-
 	if metricType != "counter" && metricType != "gauge" {
 		return models.Metrics{}, sm.ErrorMetricNotFound
 	}
 
+	s.mx.Lock()
 	metric, ok := s.metrics[metricName]
+	s.mx.Unlock()
+
 	if !ok {
 		log.Println("!!! All metrics")
 		log.Println(s.GetAll())
