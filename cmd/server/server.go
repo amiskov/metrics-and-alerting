@@ -80,7 +80,9 @@ func (cfg *config) UpdateFromFlags() {
 
 	cfg.Address = *flagAddress
 
-	log.Println("Flag -r is", *flagRestore)
+	log.Println("Flag -r is:", *flagRestore)
+	log.Println("ENV RESTORE is:", os.Getenv("RESTORE"))
+
 	if cfg.Restore != *flagRestore {
 		cfg.Restore = *flagRestore
 		cfg.restoreChangedByCli = true
@@ -92,22 +94,27 @@ func (cfg *config) UpdateFromFlags() {
 }
 
 func (cfg *config) UpdateFromEnv() {
-	if addr := os.Getenv("ADDRESS"); addr != "" {
+	if addr, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Address = addr
 	}
-	if f := os.Getenv("STORE_FILE"); f != "" {
+
+	if f, ok := os.LookupEnv("STORE_FILE"); ok {
+		// STORE_FILE may be empty string (which means "don't store metrics to file")
 		cfg.StoreFile = f
 	}
-	if r := os.Getenv("RESTORE"); r != "" {
+
+	if r, ok := os.LookupEnv("RESTORE"); ok {
 		restore, err := strconv.ParseBool(r)
 		if err != nil {
-			cfg.Restore = restore
+			log.Fatalf("Can't parse %s env var: %s", r, err.Error())
 		}
+		cfg.Restore = restore
 	}
-	if dur := os.Getenv("STORE_INTERVAL"); dur != "" {
+
+	if dur, ok := os.LookupEnv("STORE_INTERVAL"); ok {
 		storeInterval, err := time.ParseDuration(dur)
 		if err != nil {
-			log.Fatalf("Can't parse %s: %s", dur, err.Error())
+			log.Fatalf("Can't parse %s env var: %s", dur, err.Error())
 		}
 		cfg.StoreInterval = storeInterval
 	}
