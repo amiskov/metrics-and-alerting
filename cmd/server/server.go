@@ -50,8 +50,6 @@ func main() {
 	}
 	defer storage.CloseFile()
 
-	time.Sleep(2 * time.Second)
-
 	metricsAPI := api.New(storage)
 	metricsAPI.Run(cfg.Address)
 

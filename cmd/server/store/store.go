@@ -167,9 +167,6 @@ func (s *store) Update(m models.Metrics) error {
 }
 
 func (s store) GetAll() []models.Metrics {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-
 	var metrics []models.Metrics
 	for _, m := range s.metrics {
 		metrics = append(metrics, m)
