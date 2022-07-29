@@ -16,7 +16,7 @@ import (
 
 type StoreCfg struct {
 	StoreInterval time.Duration // store immediately if `0`
-	StoreFile     string        // don't store metrics if `""`
+	StoreFile     string        // don't store if `""`
 	Restore       bool          // restore from file on start if `true`
 	Ctx           context.Context
 	Finished      chan bool
@@ -29,10 +29,6 @@ type store struct {
 	metrics       metricsDB
 	storeInterval time.Duration
 	file          *os.File
-}
-
-func (s *store) CloseFile() error {
-	return s.file.Close()
 }
 
 func New(cfg StoreCfg) (*store, error) {
@@ -140,6 +136,10 @@ func (s *store) saveToFile() error {
 		return err
 	}
 	return nil
+}
+
+func (s *store) CloseFile() error {
+	return s.file.Close()
 }
 
 func (s *store) Update(m models.Metrics) error {
