@@ -82,8 +82,10 @@ func TestUpdateMetric(t *testing.T) {
 			defer cancel()
 
 			storage, err := store.New(store.StoreCfg{
-				Ctx:      ctx,
-				Finished: finished,
+				Ctx:       ctx,
+				Finished:  finished,
+				StoreFile: "",
+				Restore:   false,
 			})
 			if err != nil {
 				log.Fatalln("Creating server store failed.", err)

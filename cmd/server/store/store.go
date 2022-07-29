@@ -15,9 +15,9 @@ import (
 )
 
 type StoreCfg struct {
-	StoreInterval time.Duration
-	StoreFile     string
-	Restore       bool
+	StoreInterval time.Duration // store immediately if `0`
+	StoreFile     string        // don't store metrics if `""`
+	Restore       bool          // restore from file on start if `true`
 	Ctx           context.Context
 	Finished      chan bool
 }
@@ -45,6 +45,7 @@ func New(cfg StoreCfg) (*store, error) {
 	var file *os.File
 	if shouldUseStoreFile {
 		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
+		log.Printf("file is %+v\n", file)
 		if err != nil {
 			return nil, err
 		}
@@ -69,6 +70,7 @@ func New(cfg StoreCfg) (*store, error) {
 	save := func() {
 		if err := s.saveToFile(); err != nil {
 			log.Println("Failed saving metrics to file.", err)
+			return
 		}
 		log.Println("Metrics saved to file successfully.")
 	}
@@ -118,8 +120,10 @@ func restoreFromFile(file *os.File, metrics metricsDB) error {
 }
 
 func (s *store) saveToFile() error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	if _, err := s.file.Stat(); err != nil {
+		log.Printf("File is invalid, skip saving. Error: %s", err)
+		return err
+	}
 
 	metrics := s.GetAll()
 
@@ -127,18 +131,19 @@ func (s *store) saveToFile() error {
 		log.Printf("Can't truncate file contents: %s", err)
 		return err
 	}
-	log.Println("!!! File was truncated.")
+	log.Println("👍 File was truncated.")
 
 	if _, err := s.file.Seek(0, 0); err != nil {
 		log.Printf("Can't move the caret to the beginning of the file: %s", err)
 		return err
 	}
+	log.Println("👍 File caret is pointed to the beginning.")
 
 	if err := json.NewEncoder(s.file).Encode(metrics); err != nil {
 		log.Printf("Can't store to file %s. Error: %s", s.file.Name(), err)
 		return err
 	}
-	log.Println("!!! File was updated.")
+	log.Println("👍 File was updated.")
 	return nil
 }
 
@@ -170,6 +175,9 @@ func (s *store) Update(m models.Metrics) error {
 }
 
 func (s store) GetAll() []models.Metrics {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
 	var metrics []models.Metrics
 	for _, m := range s.metrics {
 		metrics = append(metrics, m)
