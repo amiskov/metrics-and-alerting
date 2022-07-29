@@ -10,6 +10,15 @@ func (api *metricsAPI) mountHandlers() {
 	api.Router.Use(middleware.RealIP)
 	api.Router.Use(middleware.Logger)
 	api.Router.Use(middleware.Recoverer)
+	respTypes := []string{
+		"application/javascript",
+		"application/json",
+		"text/css",
+		"text/html",
+		"text/plain",
+		"text/xml",
+	}
+	api.Router.Use(middleware.Compress(3, respTypes...))
 
 	api.Router.Route("/value", func(r chi.Router) {
 		r.Post("/", api.getMetricJSON)
