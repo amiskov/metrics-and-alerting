@@ -45,7 +45,7 @@ func New(cfg StoreCfg) (*store, error) {
 	var file *os.File
 	if shouldUseStoreFile {
 		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
-		log.Printf("file is %+v\n", file)
+		log.Printf("File is %s\n", file.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -131,19 +131,19 @@ func (s *store) saveToFile() error {
 		log.Printf("Can't truncate file contents: %s", err)
 		return err
 	}
-	log.Println("👍 File was truncated.")
+	log.Println("OK: File was truncated.")
 
 	if _, err := s.file.Seek(0, 0); err != nil {
 		log.Printf("Can't move the caret to the beginning of the file: %s", err)
 		return err
 	}
-	log.Println("👍 File caret is pointed to the beginning.")
+	log.Println("OK: File caret is pointed to the beginning.")
 
 	if err := json.NewEncoder(s.file).Encode(metrics); err != nil {
 		log.Printf("Can't store to file %s. Error: %s", s.file.Name(), err)
 		return err
 	}
-	log.Println("👍 File was updated.")
+	log.Println("OK: File was updated.")
 	return nil
 }
 
