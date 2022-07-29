@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - inc7
+      - inc8
 
 jobs:
 
@@ -233,6 +233,24 @@ jobs:
           ADDRESS="localhost:${SERVER_PORT}"
           TEMP_FILE=$(random tempfile)
           devopstest -test.v -test.run=^TestIteration7$ \
+            -source-path=. \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -server-port=$SERVER_PORT \
+            -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
+            -file-storage-path=$TEMP_FILE
+
+# VIII. Задание к восьмому инкременту.
+# Доработать код сервера, для реализации механизма cжатия данных сервером в формате gzip
+# для контента с типом: application/json и text/html
+
+      - name: "Code increment #8"
+        if: always()
+        run: |
+          SERVER_PORT=$(random unused-port)
+          ADDRESS="localhost:${SERVER_PORT}"
+          TEMP_FILE=$(random tempfile)
+          devopstest -test.v -test.run=^TestIteration8 \
             -source-path=. \
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
