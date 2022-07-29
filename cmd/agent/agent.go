@@ -77,17 +77,17 @@ func (cfg *config) updateFromFlags() {
 }
 
 func (cfg *config) updateFromEnv() {
-	if addr := os.Getenv("ADDRESS"); addr != "" {
+	if addr, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Address = addr
 	}
-	if dur := os.Getenv("POLL_INTERVAL"); dur != "" {
+	if dur, ok := os.LookupEnv("POLL_INTERVAL"); ok {
 		pollInterval, err := time.ParseDuration(dur)
 		if err != nil {
 			log.Fatalf("Can't parse %s: %s", dur, err.Error())
 		}
 		cfg.PollInterval = pollInterval
 	}
-	if dur := os.Getenv("REPORT_INTERVAL"); dur != "" {
+	if dur, ok := os.LookupEnv("REPORT_INTERVAL"); ok {
 		reportInterval, err := time.ParseDuration(dur)
 		if err != nil {
 			log.Fatalf("Can't parse %s: %s", dur, err.Error())
