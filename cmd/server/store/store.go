@@ -118,6 +118,9 @@ func restoreFromFile(file *os.File, metrics metricsDB) error {
 }
 
 func (s *store) saveToFile() error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
 	metrics := s.GetAll()
 
 	if err := s.file.Truncate(0); err != nil {
