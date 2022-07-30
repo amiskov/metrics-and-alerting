@@ -39,7 +39,6 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 		}{
 			Metrics: api.store.GetAll(),
 		})
-
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		log.Println("error while executing the template")

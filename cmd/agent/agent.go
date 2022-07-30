@@ -23,8 +23,8 @@ type config struct {
 func main() {
 	cfg := config{
 		Address:        "localhost:8080",
-		ReportInterval: time.Duration(10 * time.Second),
-		PollInterval:   time.Duration(2 * time.Second),
+		ReportInterval: 10 * time.Second,
+		PollInterval:   2 * time.Second,
 	}
 	if err := env.Parse(&cfg); err != nil {
 		log.Printf("%+v\n", err)

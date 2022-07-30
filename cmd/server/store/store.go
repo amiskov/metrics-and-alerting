@@ -40,7 +40,7 @@ func New(cfg StoreCfg) (*store, error) {
 	// File Storage
 	var file *os.File
 	if shouldUseStoreFile {
-		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
+		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0o777)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,8 @@ func (s store) GetAll() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var metrics []models.Metrics
+	l := len(s.metrics)
+	metrics := make([]models.Metrics, l, l)
 	for _, m := range s.metrics {
 		metrics = append(metrics, m)
 	}

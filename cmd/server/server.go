@@ -26,7 +26,7 @@ func main() {
 		// Defaults
 		Address:       "localhost:8080",
 		Restore:       true,
-		StoreInterval: time.Duration(300 * time.Second),
+		StoreInterval: 300 * time.Second,
 		StoreFile:     "/tmp/devops-metrics-db.json",
 	}
 	envCfg.UpdateFromFlags()
@@ -69,7 +69,7 @@ func main() {
 	<-finished
 	close(finished)
 	log.Println("Server has been successfully terminated. Bye!")
-	os.Exit(0)
+	defer func() { os.Exit(0) }()
 }
 
 func (cfg *config) UpdateFromFlags() {
