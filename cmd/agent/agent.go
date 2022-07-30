@@ -61,7 +61,6 @@ func main() {
 	close(finished)
 
 	log.Println("Agent has been terminated. Bye!")
-	os.Exit(0)
 }
 
 func (cfg *config) updateFromFlags() {

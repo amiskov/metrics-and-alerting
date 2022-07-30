@@ -43,11 +43,11 @@ func main() {
 		Finished:      finished, // to make sure we wrote the data while terminating
 	}
 
-	storage, err := store.New(storeCfg)
+	storage, closeStorageFile, err := store.New(storeCfg)
 	if err != nil {
 		log.Fatalln("Can't init server store:", err)
 	}
-	defer storage.CloseFile()
+	defer closeStorageFile()
 	log.Printf("Server store created with config: %+v", envCfg)
 
 	metricsAPI := api.New(storage)
@@ -69,7 +69,6 @@ func main() {
 	<-finished
 	close(finished)
 	log.Println("Server has been successfully terminated. Bye!")
-	defer func() { os.Exit(0) }()
 }
 
 func (cfg *config) UpdateFromFlags() {

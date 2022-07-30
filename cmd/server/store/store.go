@@ -31,7 +31,7 @@ type store struct {
 	file          *os.File
 }
 
-func New(cfg StoreCfg) (*store, error) {
+func New(cfg StoreCfg) (*store, func(), error) {
 	shouldUseStoreFile := cfg.StoreFile != ""
 	shouldRestoreFromFile := shouldUseStoreFile && cfg.Restore
 
@@ -39,11 +39,13 @@ func New(cfg StoreCfg) (*store, error) {
 
 	// File Storage
 	var file *os.File
+	var closer func()
 	if shouldUseStoreFile {
 		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0o777)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		closer = func() { file.Close() }
 	}
 
 	// Restore from file or create metrics DB
@@ -92,7 +94,7 @@ func New(cfg StoreCfg) (*store, error) {
 		cfg.Finished <- true
 	}()
 
-	return &s, nil
+	return &s, closer, err
 }
 
 func restoreFromFile(file *os.File, metrics metricsDB) error {
