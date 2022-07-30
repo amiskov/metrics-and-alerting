@@ -49,7 +49,11 @@ func main() {
 		cfg.PollInterval, cfg.ReportInterval)
 
 	// Managing user signals
-	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+	)
 
 	<-osSignalCtx.Done()
 	log.Println("Terminating agent, please wait...")

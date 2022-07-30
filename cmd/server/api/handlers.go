@@ -1,14 +1,16 @@
 package api
 
 import (
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi"
+
 	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/go-chi/chi"
 )
 
 var indexTmpl = template.Must(
@@ -52,19 +54,20 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricValue, err := api.store.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(err.Error()))
+		writeBody(rw, []byte(err.Error()))
 		return
 	}
+
 	var res string
 	switch metricType {
-	case "counter":
+	case models.MCounter:
 		res = strconv.FormatInt(*metricValue.Delta, 10)
-	case "gauge":
+	case models.MGauge:
 		res = strconv.FormatFloat(*metricValue.Value, 'f', 3, 64)
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(res))
+	writeBody(rw, []byte(res))
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
@@ -76,14 +79,14 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	var delta int64
 	var err error
 	switch mType {
-	case "counter":
+	case models.MCounter:
 		delta, err = strconv.ParseInt(urlVal, 10, 64)
 		if err != nil {
 			log.Println(err.Error())
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
-	case "gauge":
+	case models.MGauge:
 		val, err = strconv.ParseFloat(urlVal, 64)
 		if err != nil {
 			log.Println(err.Error())
@@ -99,14 +102,14 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	err = api.store.Update(metricData)
-	switch err {
-	case sm.ErrorBadMetricFormat:
+	switch {
+	case errors.Is(err, sm.ErrorBadMetricFormat):
 		rw.WriteHeader(http.StatusBadRequest)
 		return
-	case sm.ErrorMetricNotFound:
+	case errors.Is(err, sm.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
 		return
-	case sm.ErrorUnknownMetricType:
+	case errors.Is(err, sm.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
 		return
 	}
@@ -122,4 +125,11 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
+}
+
+func writeBody(rw http.ResponseWriter, body []byte) {
+	_, werr := rw.Write(body)
+	if werr != nil {
+		log.Println("Failed writing response body:", werr)
+	}
 }

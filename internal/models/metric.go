@@ -1,5 +1,10 @@
 package models
 
+const (
+	MGauge   = "gauge"
+	MCounter = "counter"
+)
+
 type (
 	Gauge   float64
 	Counter int64

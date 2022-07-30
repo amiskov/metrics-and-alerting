@@ -46,7 +46,7 @@ func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.Metrics
+	res := []models.Metrics{}
 
 	// Get Runtime Metrics
 	for name, val := range s.runtimeMetrics {
@@ -61,14 +61,14 @@ func (s *service) GetMetrics() []models.Metrics {
 
 	val := int64(s.pollCount)
 	res = append(res, models.Metrics{
-		MType: "counter",
+		MType: models.MCounter,
 		ID:    "PollCount",
 		Delta: &val,
 	})
 
 	randVal := float64(s.randomValue)
 	res = append(res, models.Metrics{
-		MType: "gauge",
+		MType: models.MGauge,
 		ID:    "RandomValue",
 		Value: &randVal,
 	})
@@ -111,6 +111,6 @@ func (s *service) updateMetrics() {
 	s.runtimeMetrics["TotalAlloc"] = models.Gauge(s.memStats.TotalAlloc)
 
 	s.pollCount++
-	s.randomValue = models.Gauge(rand.Float64())
+	s.randomValue = models.Gauge(rand.Float64()) // nolint: gosec
 	log.Println("Metrics has been updated.")
 }

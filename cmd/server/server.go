@@ -35,7 +35,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
 
-	storeCfg := store.StoreCfg{
+	storeCfg := store.Cfg{
 		StoreFile:     envCfg.StoreFile,
 		StoreInterval: envCfg.StoreInterval,
 		Restore:       envCfg.Restore,
@@ -43,11 +43,11 @@ func main() {
 		Finished:      finished, // to make sure we wrote the data while terminating
 	}
 
-	storage, closeStorageFile, err := store.New(storeCfg)
+	storage, closeFile, err := store.New(&storeCfg)
 	if err != nil {
 		log.Fatalln("Can't init server store:", err)
 	}
-	defer closeStorageFile()
+	defer closeFile()
 	log.Printf("Server store created with config: %+v", envCfg)
 
 	metricsAPI := api.New(storage)

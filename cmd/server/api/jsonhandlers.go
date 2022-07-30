@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,7 +20,7 @@ func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Reques
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
-	rw.Write(jbz)
+	writeBody(rw, jbz)
 }
 
 func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if errj != nil {
 		log.Println("Parsing body JSON failed:", errj)
 		rw.WriteHeader(http.StatusBadRequest)
-		rw.Write([]byte(`{"error": "Can't parse body request ` + errj.Error() + `"}`))
+		writeBody(rw, []byte(`{"error": "Can't parse body request `+errj.Error()+`"}`))
 		return
 	}
 
@@ -43,20 +44,20 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Metric not found. Body: %s. Error: %s.", body, err.Error())
 		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(`{"error": "Can't get metric ` + err.Error() + `"}`))
+		writeBody(rw, []byte(`{"error": "Can't get metric `+err.Error()+`"}`))
 		return
 	}
 
 	jbz, err := json.Marshal(foundMetric)
 	if err != nil {
-		log.Printf("Error marshalling metric: %+v", err)
+		log.Printf("Error marshaling metric: %+v", err)
 		rw.WriteHeader(http.StatusBadRequest)
-		rw.Write([]byte(`{"error": "` + err.Error() + `"}`))
+		writeBody(rw, []byte(`{"error": "`+err.Error()+`"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write(jbz)
+	writeBody(rw, jbz)
 }
 
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
@@ -68,27 +69,26 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
-		rw.Write([]byte(`{"error":"` + sm.ErrorBadMetricFormat.Error() + `"}`))
+		writeBody(rw, []byte(`{"error":"`+sm.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
 	err = api.store.Update(metricData)
-	switch err {
-	case sm.ErrorBadMetricFormat:
+	switch {
+	case errors.Is(err, sm.ErrorBadMetricFormat):
 		http.Error(rw, err.Error(), http.StatusBadRequest)
-		rw.Write([]byte(`{"error":"` + sm.ErrorBadMetricFormat.Error() + `"}`))
+		writeBody(rw, []byte(`{"error":"`+sm.ErrorBadMetricFormat.Error()+`"}`))
 		return
-	case sm.ErrorMetricNotFound:
-		rw.Write([]byte(`{"error":"` + sm.ErrorMetricNotFound.Error() + `"}`))
+	case errors.Is(err, sm.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
-		http.NotFound(rw, r)
+		writeBody(rw, []byte(`{"error":"`+sm.ErrorMetricNotFound.Error()+`"}`))
 		return
-	case sm.ErrorUnknownMetricType:
+	case errors.Is(err, sm.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
-		rw.Write([]byte(`{"error":"` + sm.ErrorUnknownMetricType.Error() + `"}`))
+		writeBody(rw, []byte(`{"error":"`+sm.ErrorUnknownMetricType.Error()+`"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(`{}`))
+	writeBody(rw, []byte(`{}`))
 }
