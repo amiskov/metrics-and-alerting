@@ -81,7 +81,7 @@ func TestUpdateMetric(t *testing.T) {
 			finished := make(chan bool)
 			defer cancel()
 
-			storage, err := store.New(store.StoreCfg{
+			storage, closeFile, err := store.New(&store.Cfg{
 				Ctx:       ctx,
 				Finished:  finished,
 				StoreFile: "",
@@ -90,7 +90,7 @@ func TestUpdateMetric(t *testing.T) {
 			if err != nil {
 				log.Fatalln("Creating server store failed.", err)
 			}
-			defer storage.CloseFile()
+			defer closeFile()
 			metricsAPI := api.New(storage)
 			metricsAPI.Router.ServeHTTP(w, request)
 

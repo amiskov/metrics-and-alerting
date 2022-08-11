@@ -26,7 +26,7 @@ func main() {
 		// Defaults
 		Address:       "localhost:8080",
 		Restore:       true,
-		StoreInterval: time.Duration(300 * time.Second),
+		StoreInterval: 300 * time.Second,
 		StoreFile:     "/tmp/devops-metrics-db.json",
 	}
 	envCfg.UpdateFromFlags()
@@ -35,7 +35,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan bool)
 
-	storeCfg := store.StoreCfg{
+	storeCfg := store.Cfg{
 		StoreFile:     envCfg.StoreFile,
 		StoreInterval: envCfg.StoreInterval,
 		Restore:       envCfg.Restore,
@@ -43,11 +43,11 @@ func main() {
 		Finished:      finished, // to make sure we wrote the data while terminating
 	}
 
-	storage, err := store.New(storeCfg)
+	storage, closeFile, err := store.New(&storeCfg)
 	if err != nil {
 		log.Fatalln("Can't init server store:", err)
 	}
-	defer storage.CloseFile()
+	defer closeFile()
 	log.Printf("Server store created with config: %+v", envCfg)
 
 	metricsAPI := api.New(storage)
@@ -69,7 +69,6 @@ func main() {
 	<-finished
 	close(finished)
 	log.Println("Server has been successfully terminated. Bye!")
-	os.Exit(0)
 }
 
 func (cfg *config) UpdateFromFlags() {

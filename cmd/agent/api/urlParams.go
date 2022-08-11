@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 func (a *api) sendMetrics() {
@@ -19,11 +21,11 @@ func (a *api) sendMetrics() {
 
 			var val string
 			switch m.MType {
-			case "gauge":
-				val = strconv.FormatFloat(float64(*m.Value), 'f', 3, 64)
-			case "counter":
+			case models.MGauge:
+				val = strconv.FormatFloat(*m.Value, 'f', 3, 64)
+			case models.MCounter:
 				log.Printf("%v (%v): %+v\n", m.ID, m.MType, m.Value)
-				val = strconv.FormatInt(int64(*m.Delta), 10)
+				val = strconv.FormatInt(*m.Delta, 10)
 			default:
 				log.Printf("Unknown metric type: %#v", m)
 			}

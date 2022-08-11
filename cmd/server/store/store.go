@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-type StoreCfg struct {
+type Cfg struct {
 	StoreInterval time.Duration // store immediately if `0`
 	StoreFile     string        // don't store if `""`
 	Restore       bool          // restore from file on start if `true`
@@ -31,37 +32,38 @@ type store struct {
 	file          *os.File
 }
 
-func New(cfg StoreCfg) (*store, error) {
+type closer func() error
+
+func New(cfg *Cfg) (*store, closer, error) {
 	shouldUseStoreFile := cfg.StoreFile != ""
 	shouldRestoreFromFile := shouldUseStoreFile && cfg.Restore
 
-	var err error
+	s := store{
+		mx:            new(sync.Mutex),
+		metrics:       make(metricsDB),
+		storeInterval: cfg.StoreInterval,
+	}
 
-	// File Storage
-	var file *os.File
+	// Init file Storage
+	fileCloser := func() error { return nil }
 	if shouldUseStoreFile {
-		file, err = os.OpenFile(cfg.StoreFile, os.O_RDWR|os.O_CREATE, 0777)
+		var err error
+		fileCloser, err = s.addFileStorage(cfg.StoreFile)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	// Restore from file or create metrics DB
-	metrics := make(metricsDB)
-	if shouldRestoreFromFile {
-		if err := restoreFromFile(file, metrics); err != nil {
-			log.Fatalf("Can't restore from a file %s. Error: %s", cfg.StoreFile, err)
+	// Restore from file or create empty metrics DB
+	if shouldUseStoreFile && shouldRestoreFromFile {
+		if err := restoreFromFile(s.file, s.metrics); err != nil {
+			log.Printf("Can't restore from a file %s. Error: %s.", cfg.StoreFile, err)
+			return nil, nil, err
 		}
 		log.Printf("Metrics data restored from %s", cfg.StoreFile)
 	}
 
-	s := store{
-		mx:            new(sync.Mutex),
-		storeInterval: cfg.StoreInterval,
-		file:          file,
-		metrics:       metrics,
-	}
-
+	var ticker *time.Ticker
 	save := func() {
 		if err := s.saveToFile(); err != nil {
 			log.Println("Failed saving metrics to file.", err)
@@ -70,42 +72,54 @@ func New(cfg StoreCfg) (*store, error) {
 		log.Printf("Metrics successfully saved to `%s`.", s.file.Name())
 	}
 
-	var ticker *time.Ticker
-
-	go func() {
-		if s.storeInterval != 0 {
+	// Interval saving to file if interval is not `0`.
+	if shouldUseStoreFile && s.storeInterval > 0 {
+		go func() {
 			ticker = time.NewTicker(s.storeInterval)
 			defer ticker.Stop()
 			for range ticker.C {
 				save()
 			}
-		}
-	}()
+		}()
+	}
 
+	// Handle terminating message: save data and stop ticker if it's running.
 	go func() {
 		<-cfg.Ctx.Done()
 		if ticker != nil {
 			ticker.Stop()
+			log.Println("Saving timer stopped.")
 		}
-		log.Println("Saving timer stopped.")
-		save()
+		if s.file != nil {
+			save()
+			log.Println("Data saved to file.")
+		}
 		cfg.Finished <- true
 	}()
 
-	return &s, nil
+	return &s, fileCloser, nil
+}
+
+func (s *store) addFileStorage(name string) (func() error, error) {
+	file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0o777)
+	if err != nil {
+		return nil, err
+	}
+	s.file = file
+	return file.Close, nil
 }
 
 func restoreFromFile(file *os.File, metrics metricsDB) error {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&storedMetrics)
-	switch err {
-	case nil:
+	switch {
+	case errors.Is(err, nil):
 		for _, m := range storedMetrics {
 			metrics[m.ID] = m
 		}
 		return nil
-	case io.EOF:
+	case errors.Is(err, io.EOF):
 		log.Println("File is empty, nothing to restore.")
 		return nil // empty file is not an error
 	default:
@@ -138,32 +152,37 @@ func (s *store) saveToFile() error {
 	return nil
 }
 
-func (s *store) CloseFile() error {
-	return s.file.Close()
+// Updates the inmemory metric and stores metrics to file if necessary.
+func (s *store) Update(m models.Metrics) error {
+	err := s.update(m)
+	if err != nil {
+		return err
+	}
+
+	// Save to file only if file exists and StoreInterval is `0`.
+	if s.file == nil || s.storeInterval != 0 {
+		return nil
+	}
+
+	return s.saveToFile()
 }
 
-func (s *store) Update(m models.Metrics) error {
+// Updates the inmem values.
+func (s *store) update(m models.Metrics) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
 	switch m.MType {
-	case "counter":
+	case models.MCounter:
 		if _, ok := s.metrics[m.ID]; ok {
 			*s.metrics[m.ID].Delta += *m.Delta
 		} else {
 			s.metrics[m.ID] = m
 		}
-	case "gauge":
+	case models.MGauge:
 		s.metrics[m.ID] = m
 	default:
 		return sm.ErrorUnknownMetricType
-	}
-
-	// Save to disk immediately
-	if s.storeInterval == 0 {
-		if err := s.saveToFile(); err != nil {
-			log.Println("Can't save metrics to file on Update:", err)
-		}
 	}
 
 	return nil
@@ -173,7 +192,7 @@ func (s store) GetAll() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var metrics []models.Metrics
+	metrics := []models.Metrics{}
 	for _, m := range s.metrics {
 		metrics = append(metrics, m)
 	}
@@ -184,7 +203,7 @@ func (s store) GetAll() []models.Metrics {
 }
 
 func (s store) Get(metricType string, metricName string) (models.Metrics, error) {
-	if metricType != "counter" && metricType != "gauge" {
+	if metricType != models.MCounter && metricType != models.MGauge {
 		return models.Metrics{}, sm.ErrorMetricNotFound
 	}
 
@@ -193,8 +212,6 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 	s.mx.Unlock()
 
 	if !ok {
-		log.Println("!!! All metrics")
-		log.Println(s.GetAll())
 		return metric, sm.ErrorMetricNotFound
 	}
 	return metric, nil

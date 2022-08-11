@@ -3,9 +3,11 @@ package api
 import (
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/go-chi/chi"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/go-chi/chi"
 )
 
 type Storage interface {
@@ -30,8 +32,9 @@ func New(s Storage) *metricsAPI {
 
 func (api *metricsAPI) Run(address string) {
 	server := &http.Server{
-		Addr:    address,
-		Handler: api.Router,
+		Addr:              address,
+		Handler:           api.Router,
+		ReadHeaderTimeout: 2 * time.Second,
 	}
 	log.Fatalln(server.ListenAndServe())
 }

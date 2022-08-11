@@ -23,8 +23,8 @@ type config struct {
 func main() {
 	cfg := config{
 		Address:        "localhost:8080",
-		ReportInterval: time.Duration(10 * time.Second),
-		PollInterval:   time.Duration(2 * time.Second),
+		ReportInterval: 10 * time.Second,
+		PollInterval:   2 * time.Second,
 	}
 	if err := env.Parse(&cfg); err != nil {
 		log.Printf("%+v\n", err)
@@ -49,7 +49,11 @@ func main() {
 		cfg.PollInterval, cfg.ReportInterval)
 
 	// Managing user signals
-	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+	)
 
 	<-osSignalCtx.Done()
 	log.Println("Terminating agent, please wait...")
@@ -61,7 +65,6 @@ func main() {
 	close(finished)
 
 	log.Println("Agent has been terminated. Bye!")
-	os.Exit(0)
 }
 
 func (cfg *config) updateFromFlags() {
