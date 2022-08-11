@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
@@ -18,13 +21,15 @@ type service struct {
 	runtimeMetrics map[string]models.Gauge
 	pollCount      models.Counter
 	randomValue    models.Gauge
+	hashingKey     []byte
 }
 
-func New() *service {
+func New(key []byte) *service {
 	return &service{
 		mx:             new(sync.RWMutex),
 		memStats:       new(runtime.MemStats),
 		runtimeMetrics: make(map[string]models.Gauge),
+		hashingKey:     key,
 	}
 }
 
@@ -43,6 +48,13 @@ func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Dur
 	}
 }
 
+func hash(src []byte, key []byte) string {
+	h := hmac.New(sha256.New, key)
+	h.Write(src)
+	dst := h.Sum(nil)
+	return fmt.Sprintf("%x", dst)
+}
+
 func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
@@ -56,22 +68,27 @@ func (s *service) GetMetrics() []models.Metrics {
 			MType: "gauge",
 			ID:    name,
 			Value: &val,
+			Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%f", name, val)), s.hashingKey),
 		}
 		res = append(res, m)
 	}
 
 	val := int64(s.pollCount)
+	id := "PollCount"
 	res = append(res, models.Metrics{
 		MType: models.MCounter,
-		ID:    "PollCount",
+		ID:    id,
 		Delta: &val,
+		Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%d", id, val)), s.hashingKey),
 	})
 
 	randVal := float64(s.randomValue)
+	randID := "RandomValue"
 	res = append(res, models.Metrics{
 		MType: models.MGauge,
-		ID:    "RandomValue",
+		ID:    randID,
 		Value: &randVal,
+		Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%f", randID, randVal)), s.hashingKey),
 	})
 
 	return res

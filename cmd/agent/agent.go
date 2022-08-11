@@ -19,6 +19,7 @@ type config struct {
 	Address        string
 	ReportInterval time.Duration
 	PollInterval   time.Duration
+	HashingKey     string
 }
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	updater := service.New()
+	updater := service.New([]byte(cfg.HashingKey))
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
 	go updater.Run(ctx, finished, cfg.PollInterval)
 
@@ -72,12 +73,14 @@ func (cfg *config) updateFromFlags() {
 	flagAddress := flag.String("a", cfg.Address, "Server address.")
 	flagReportInterval := flag.Duration("r", cfg.ReportInterval, "Report interval in seconds.")
 	flagPollInterval := flag.Duration("p", cfg.PollInterval, "Poll interval in seconds.")
+	flagHash := flag.String("k", cfg.HashingKey, "Hashing key.")
 
 	flag.Parse()
 
 	cfg.Address = *flagAddress
 	cfg.ReportInterval = *flagReportInterval
 	cfg.PollInterval = *flagPollInterval
+	cfg.HashingKey = *flagHash
 }
 
 func (cfg *config) updateFromEnv() {
@@ -97,5 +100,8 @@ func (cfg *config) updateFromEnv() {
 			log.Fatalf("Can't parse %s: %s", dur, err.Error())
 		}
 		cfg.ReportInterval = reportInterval
+	}
+	if hashingKey, ok := os.LookupEnv("KEY"); ok {
+		cfg.HashingKey = hashingKey
 	}
 }
