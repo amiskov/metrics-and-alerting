@@ -32,7 +32,9 @@ type store struct {
 	file          *os.File
 }
 
-func New(cfg *Cfg) (*store, func(), error) {
+type closer func() error
+
+func New(cfg *Cfg) (*store, closer, error) {
 	shouldUseStoreFile := cfg.StoreFile != ""
 	shouldRestoreFromFile := shouldUseStoreFile && cfg.Restore
 
@@ -40,26 +42,20 @@ func New(cfg *Cfg) (*store, func(), error) {
 		mx:            new(sync.Mutex),
 		metrics:       make(metricsDB),
 		storeInterval: cfg.StoreInterval,
-		file:          new(os.File),
 	}
 
-	var fileCloser func()
-
-	// File Storage
+	// Init file Storage
+	fileCloser := func() error { return nil }
 	if shouldUseStoreFile {
-		closeFile, err := s.addFileStorage(cfg.StoreFile)
+		var err error
+		fileCloser, err = s.addFileStorage(cfg.StoreFile)
 		if err != nil {
 			return nil, nil, err
-		}
-		fileCloser = func() {
-			if err := closeFile(); err != nil {
-				log.Fatalln("Failed while closing StoreFile: ", err)
-			}
 		}
 	}
 
 	// Restore from file or create empty metrics DB
-	if shouldRestoreFromFile {
+	if shouldUseStoreFile && shouldRestoreFromFile {
 		if err := restoreFromFile(s.file, s.metrics); err != nil {
 			log.Printf("Can't restore from a file %s. Error: %s.", cfg.StoreFile, err)
 			return nil, nil, err
@@ -67,6 +63,7 @@ func New(cfg *Cfg) (*store, func(), error) {
 		log.Printf("Metrics data restored from %s", cfg.StoreFile)
 	}
 
+	var ticker *time.Ticker
 	save := func() {
 		if err := s.saveToFile(); err != nil {
 			log.Println("Failed saving metrics to file.", err)
@@ -75,25 +72,28 @@ func New(cfg *Cfg) (*store, func(), error) {
 		log.Printf("Metrics successfully saved to `%s`.", s.file.Name())
 	}
 
-	var ticker *time.Ticker
-
-	go func() {
-		if s.storeInterval != 0 {
+	// Interval saving to file if interval is not `0`.
+	if shouldUseStoreFile && s.storeInterval > 0 {
+		go func() {
 			ticker = time.NewTicker(s.storeInterval)
 			defer ticker.Stop()
 			for range ticker.C {
 				save()
 			}
-		}
-	}()
+		}()
+	}
 
+	// Handle terminating message: save data and stop ticker if it's running.
 	go func() {
 		<-cfg.Ctx.Done()
 		if ticker != nil {
 			ticker.Stop()
+			log.Println("Saving timer stopped.")
 		}
-		log.Println("Saving timer stopped.")
-		save()
+		if s.file != nil {
+			save()
+			log.Println("Data saved to file.")
+		}
 		cfg.Finished <- true
 	}()
 
@@ -152,11 +152,23 @@ func (s *store) saveToFile() error {
 	return nil
 }
 
-func (s *store) CloseFile() error {
-	return s.file.Close()
+// Updates the inmemory metric and stores metrics to file if necessary.
+func (s *store) Update(m models.Metrics) error {
+	err := s.update(m)
+	if err != nil {
+		return err
+	}
+
+	// Save to file only if file exists and StoreInterval is `0`.
+	if s.file == nil || s.storeInterval != 0 {
+		return nil
+	}
+
+	return s.saveToFile()
 }
 
-func (s *store) Update(m models.Metrics) error {
+// Updates the inmem values.
+func (s *store) update(m models.Metrics) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
@@ -171,13 +183,6 @@ func (s *store) Update(m models.Metrics) error {
 		s.metrics[m.ID] = m
 	default:
 		return sm.ErrorUnknownMetricType
-	}
-
-	// Save to disk immediately
-	if s.storeInterval == 0 {
-		if err := s.saveToFile(); err != nil {
-			log.Println("Can't save metrics to file on Update:", err)
-		}
 	}
 
 	return nil
