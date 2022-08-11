@@ -9,9 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/caarlos0/env/v6"
+
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/service"
-	"github.com/caarlos0/env/v6"
 )
 
 type config struct {
@@ -40,7 +41,7 @@ func main() {
 	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
 	go updater.Run(ctx, finished, cfg.PollInterval)
 
-	reporter := api.New(updater, ctx, finished, cfg.ReportInterval, cfg.Address)
+	reporter := api.New(ctx, updater, finished, cfg.ReportInterval, cfg.Address)
 	// go reporter.ReportWithURLParams()
 	go reporter.ReportWithJSON()
 

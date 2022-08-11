@@ -90,7 +90,11 @@ func TestUpdateMetric(t *testing.T) {
 			if err != nil {
 				log.Fatalln("Creating server store failed.", err)
 			}
-			defer closeFile()
+			defer func() {
+				if err := closeFile(); err != nil {
+					log.Println("failed closing file storage:", err)
+				}
+			}()
 			metricsAPI := api.New(storage)
 			metricsAPI.Router.ServeHTTP(w, request)
 

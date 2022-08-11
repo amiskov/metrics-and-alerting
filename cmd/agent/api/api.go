@@ -25,7 +25,7 @@ type api struct {
 	serverURL      string
 }
 
-func New(s Service, ctx context.Context, done chan bool, reportInterval time.Duration, address string) *api {
+func New(ctx context.Context, s Service, done chan bool, reportInterval time.Duration, address string) *api {
 	return &api{
 		updater:        s,
 		ctx:            ctx,
@@ -45,19 +45,20 @@ func (a *api) ReportWithJSON() {
 
 func (a *api) runReporter(apiType int) {
 	ticker := time.NewTicker(a.reportInterval)
+
+	go func() {
+		<-a.ctx.Done()
+		ticker.Stop()
+		log.Println("Metrics report stopped.")
+		a.done <- true
+	}()
+
 	for range ticker.C {
-		select {
-		case <-a.ctx.Done():
-			ticker.Stop()
-			log.Println("Metrics report stopped.")
-			a.done <- true
-		default:
-			switch apiType {
-			case withJSON:
-				a.sendMetricsJSON()
-			case withURL:
-				a.sendMetrics()
-			}
+		switch apiType {
+		case withJSON:
+			a.sendMetricsJSON()
+		case withURL:
+			a.sendMetrics()
 		}
 	}
 }

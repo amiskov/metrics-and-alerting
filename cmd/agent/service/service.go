@@ -30,16 +30,16 @@ func New() *service {
 
 func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
+
+	go func() {
+		<-ctx.Done()
+		ticker.Stop()
+		log.Println("Metrics update stopped.")
+		done <- true
+	}()
+
 	for range ticker.C {
-		select {
-		// TODO: move stopping to another goroutine so we don't wait for the next tick.
-		case <-ctx.Done():
-			ticker.Stop()
-			log.Println("Metrics update stopped.")
-			done <- true
-		default:
-			s.updateMetrics()
-		}
+		s.updateMetrics()
 	}
 }
 
