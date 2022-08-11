@@ -2,15 +2,13 @@ package service
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/internal/common"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -48,13 +46,6 @@ func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Dur
 	}
 }
 
-func hash(src []byte, key []byte) string {
-	h := hmac.New(sha256.New, key)
-	h.Write(src)
-	dst := h.Sum(nil)
-	return fmt.Sprintf("%x", dst)
-}
-
 func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
@@ -65,31 +56,34 @@ func (s *service) GetMetrics() []models.Metrics {
 	for name, val := range s.runtimeMetrics {
 		val := float64(val)
 		m := models.Metrics{
-			MType: "gauge",
+			MType: models.MGauge,
 			ID:    name,
 			Value: &val,
-			Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%f", name, val)), s.hashingKey),
 		}
+		hash, _ := common.Hash(m, s.hashingKey)
+		m.Hash = hash
 		res = append(res, m)
 	}
 
 	val := int64(s.pollCount)
-	id := "PollCount"
-	res = append(res, models.Metrics{
+	pcm := models.Metrics{
 		MType: models.MCounter,
-		ID:    id,
+		ID:    "PollCount",
 		Delta: &val,
-		Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%d", id, val)), s.hashingKey),
-	})
+	}
+	hash, _ := common.Hash(pcm, s.hashingKey)
+	pcm.Hash = hash
+	res = append(res, pcm)
 
 	randVal := float64(s.randomValue)
-	randID := "RandomValue"
-	res = append(res, models.Metrics{
+	rm := models.Metrics{
 		MType: models.MGauge,
-		ID:    randID,
+		ID:    "RandomValue",
 		Value: &randVal,
-		Hash:  hash([]byte(fmt.Sprintf("%s:gauge:%f", randID, randVal)), s.hashingKey),
-	})
+	}
+	hash, _ = common.Hash(rm, s.hashingKey)
+	rm.Hash = hash
+	res = append(res, rm)
 
 	return res
 }

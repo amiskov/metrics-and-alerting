@@ -22,6 +22,7 @@ func main() {
 		Restore:       envCfg.Restore,
 		Ctx:           ctx,
 		Finished:      finished, // to make sure we wrote the data while terminating
+		HashingKey:    []byte(envCfg.HashingKey),
 	}
 
 	storage, closeFile, err := store.New(&storeCfg)

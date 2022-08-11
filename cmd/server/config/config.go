@@ -13,6 +13,7 @@ type config struct {
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
+	HashingKey    string
 }
 
 func Parse() *config {
@@ -33,6 +34,7 @@ func (cfg *config) updateFromFlags() {
 	flagRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
 	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
 	flagStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
+	flagHashingKey := flag.String("k", cfg.HashingKey, "Hashing key.")
 
 	flag.Parse()
 
@@ -40,6 +42,7 @@ func (cfg *config) updateFromFlags() {
 	cfg.Restore = *flagRestore
 	cfg.StoreInterval = *flagStoreInterval
 	cfg.StoreFile = *flagStoreFile
+	cfg.HashingKey = *flagHashingKey
 }
 
 func (cfg *config) updateFromEnv() {
@@ -62,5 +65,8 @@ func (cfg *config) updateFromEnv() {
 			log.Fatalf("Can't parse %s env var: %s", intervalEnv, err.Error())
 		}
 		cfg.StoreInterval = storeInterval
+	}
+	if hashingKey, ok := os.LookupEnv("KEY"); ok {
+		cfg.HashingKey = hashingKey
 	}
 }

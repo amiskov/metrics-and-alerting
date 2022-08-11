@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"crypto/hmac"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
+	"github.com/amiskov/metrics-and-alerting/internal/common"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -21,6 +24,7 @@ type Cfg struct {
 	Restore       bool          // restore from file on start if `true`
 	Ctx           context.Context
 	Finished      chan bool
+	HashingKey    []byte
 }
 
 type metricsDB map[string]models.Metrics
@@ -30,6 +34,7 @@ type store struct {
 	metrics       metricsDB
 	storeInterval time.Duration
 	file          *os.File
+	hashingKey    []byte
 }
 
 type closer func() error
@@ -42,6 +47,7 @@ func New(cfg *Cfg) (*store, closer, error) {
 		mx:            new(sync.Mutex),
 		metrics:       make(metricsDB),
 		storeInterval: cfg.StoreInterval,
+		hashingKey:    cfg.HashingKey,
 	}
 
 	// Init file Storage
@@ -171,6 +177,17 @@ func (s *store) Update(m models.Metrics) error {
 func (s *store) update(m models.Metrics) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
+
+	agentHash := m.Hash
+	serverHash, err := common.Hash(m, s.hashingKey)
+	if err != nil {
+		return sm.ErrorBadMetricFormat
+	}
+	agHex, _ := hex.DecodeString(agentHash)
+	seHex, _ := hex.DecodeString(serverHash)
+	if !hmac.Equal(agHex, seHex) {
+		return sm.ErrorBadMetricFormat
+	}
 
 	switch m.MType {
 	case models.MCounter:
