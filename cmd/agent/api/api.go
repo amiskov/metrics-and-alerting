@@ -3,64 +3,62 @@ package api
 import (
 	"context"
 	"log"
-	"net/http"
-	"sync"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
+const (
+	withJSON = iota
+	withURL
+)
+
 type Service interface {
-	GetMetrics() []models.MetricRaw
+	GetMetrics() []models.Metrics
 }
 
 type api struct {
-	service Service
+	updater        Service
+	ctx            context.Context
+	done           chan bool
+	reportInterval time.Duration
+	serverURL      string
 }
 
-func New(s Service) *api {
-	return &api{service: s}
+func New(ctx context.Context, s Service, done chan bool, reportInterval time.Duration, address string) *api {
+	return &api{
+		updater:        s,
+		ctx:            ctx,
+		done:           done,
+		reportInterval: reportInterval,
+		serverURL:      "http://" + address,
+	}
 }
 
-func (a *api) Run(ctx context.Context, done chan bool, reportInterval time.Duration, serverURL string) {
-	ticker := time.NewTicker(reportInterval)
+func (a *api) ReportWithURLParams() {
+	a.runReporter(withURL)
+}
+
+func (a *api) ReportWithJSON() {
+	a.runReporter(withJSON)
+}
+
+func (a *api) runReporter(apiType int) {
+	ticker := time.NewTicker(a.reportInterval)
+
+	go func() {
+		<-a.ctx.Done()
+		ticker.Stop()
+		log.Println("Metrics report stopped.")
+		a.done <- true
+	}()
+
 	for range ticker.C {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			log.Println("Metrics report stopped.")
-			done <- true
-		default:
-			a.sendMetrics(serverURL)
+		switch apiType {
+		case withJSON:
+			a.sendMetricsJSON()
+		case withURL:
+			a.sendMetrics()
 		}
 	}
-}
-
-func (a *api) sendMetrics(sendURL string) {
-	var wg sync.WaitGroup
-
-	for _, m := range a.service.GetMetrics() {
-		m := m
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sendMetric(sendURL, m.Type, m.Name, m.Value)
-		}()
-	}
-
-	wg.Wait()
-}
-
-func sendMetric(sendURL string, mType string, mName string, mValue string) {
-	postURL := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
-	contentType := "Content-Type: text/plain"
-	client := http.Client{}
-	client.Timeout = 10 * time.Second
-	resp, errPost := client.Post(postURL, contentType, nil)
-	if errPost != nil {
-		log.Println(errPost)
-		return
-	}
-	defer resp.Body.Close()
-	log.Printf("Sent to `%s`.\n", postURL)
 }

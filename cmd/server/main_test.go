@@ -1,6 +1,8 @@
 package main_test
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,8 +76,26 @@ func TestUpdateMetric(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tt.path, nil)
 
 			w := httptest.NewRecorder()
-			s := store.NewServerStore()
-			metricsAPI := api.New(s)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			finished := make(chan bool)
+			defer cancel()
+
+			storage, closeFile, err := store.New(&store.Cfg{
+				Ctx:       ctx,
+				Finished:  finished,
+				StoreFile: "",
+				Restore:   false,
+			})
+			if err != nil {
+				log.Fatalln("Creating server store failed.", err)
+			}
+			defer func() {
+				if err := closeFile(); err != nil {
+					log.Println("failed closing file storage:", err)
+				}
+			}()
+			metricsAPI := api.New(storage)
 			metricsAPI.Router.ServeHTTP(w, request)
 
 			res := w.Result()

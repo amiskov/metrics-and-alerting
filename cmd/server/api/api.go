@@ -1,19 +1,19 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/go-chi/chi"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/go-chi/chi"
 )
 
 type Storage interface {
-	UpdateMetric(models.MetricRaw) error
-	GetMetric(string, string) (string, error)
-	GetGaugeMetrics() []models.MetricRaw
-	GetCounterMetrics() []models.MetricRaw
+	Update(models.Metrics) error
+	Get(mType string, mName string) (models.Metrics, error)
+	GetAll() []models.Metrics
 }
 
 type metricsAPI struct {
@@ -30,7 +30,11 @@ func New(s Storage) *metricsAPI {
 	return api
 }
 
-func (api *metricsAPI) Run(port string) {
-	fmt.Printf("Server has been started at %s\n", port)
-	log.Fatal(http.ListenAndServe(port, api.Router))
+func (api *metricsAPI) Run(address string) {
+	server := &http.Server{
+		Addr:              address,
+		Handler:           api.Router,
+		ReadHeaderTimeout: 2 * time.Second,
+	}
+	log.Fatalln(server.ListenAndServe())
 }

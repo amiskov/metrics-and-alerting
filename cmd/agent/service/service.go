@@ -30,44 +30,48 @@ func New() *service {
 
 func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
+
+	go func() {
+		<-ctx.Done()
+		ticker.Stop()
+		log.Println("Metrics update stopped.")
+		done <- true
+	}()
+
 	for range ticker.C {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			log.Println("Metrics update stopped.")
-			done <- true
-		default:
-			s.updateMetrics()
-		}
+		s.updateMetrics()
 	}
 }
 
-func (s *service) GetMetrics() []models.MetricRaw {
+func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	var res []models.MetricRaw
+	res := []models.Metrics{}
 
 	// Get Runtime Metrics
 	for name, val := range s.runtimeMetrics {
-		m := models.MetricRaw{
-			Type:  "gauge",
-			Name:  name,
-			Value: val.String(),
+		val := float64(val)
+		m := models.Metrics{
+			MType: "gauge",
+			ID:    name,
+			Value: &val,
 		}
 		res = append(res, m)
 	}
 
-	res = append(res, models.MetricRaw{
-		Type:  "counter",
-		Name:  "PollCount",
-		Value: s.pollCount.String(),
+	val := int64(s.pollCount)
+	res = append(res, models.Metrics{
+		MType: models.MCounter,
+		ID:    "PollCount",
+		Delta: &val,
 	})
 
-	res = append(res, models.MetricRaw{
-		Type:  "gauge",
-		Name:  "RandomValue",
-		Value: s.randomValue.String(),
+	randVal := float64(s.randomValue)
+	res = append(res, models.Metrics{
+		MType: models.MGauge,
+		ID:    "RandomValue",
+		Value: &randVal,
 	})
 
 	return res
@@ -108,6 +112,6 @@ func (s *service) updateMetrics() {
 	s.runtimeMetrics["TotalAlloc"] = models.Gauge(s.memStats.TotalAlloc)
 
 	s.pollCount++
-	s.randomValue = models.Gauge(rand.Float64())
+	s.randomValue = models.Gauge(rand.Float64()) // nolint: gosec
 	log.Println("Metrics has been updated.")
 }

@@ -1,26 +1,34 @@
 package api
 
 import (
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
-	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/go-chi/chi"
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi"
+
+	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
+	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 var indexTmpl = template.Must(
-	template.New("index").Parse(`<h1>Metrics Service</h1>
-		<h2>Gauge Metrics</h2>
+	template.New("index").Parse(`<h1>Metrics</h1>
 		<table>
-		{{range $m := .GaugeMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
-		{{end}}
-		</table>
-		<h2>Counter Metrics</h2>
-		<table>
-		{{range $m := .CounterMetrics}}
-			 <tr><td>{{$m.Name}}</td><td>{{$m.Value}}</td></tr>
+		{{range $m := .Metrics}}
+			 <tr>
+			 <td>{{$m.ID}}</td>
+			 	<td>{{$m.MType}}</td>
+
+			 {{if (eq $m.MType "gauge")}}
+			 	<td>{{$m.Value}}</td>
+			 {{ end }}
+
+			 {{if (eq $m.MType "counter")}}
+			 	<td>{{$m.Delta}}</td>
+			 {{ end }}
+			 </tr>
 		{{end}}
 		</table>`))
 
@@ -29,13 +37,10 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 
 	err := indexTmpl.Execute(rw,
 		struct {
-			GaugeMetrics   []models.MetricRaw
-			CounterMetrics []models.MetricRaw
+			Metrics []models.Metrics
 		}{
-			api.store.GetGaugeMetrics(),
-			api.store.GetCounterMetrics(),
+			Metrics: api.store.GetAll(),
 		})
-
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		log.Println("error while executing the template")
@@ -46,35 +51,65 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	metricValue, err := api.store.GetMetric(metricType, metricName)
+	metricValue, err := api.store.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(err.Error()))
+		writeBody(rw, []byte(err.Error()))
 		return
 	}
 
+	var res string
+	switch metricType {
+	case models.MCounter:
+		res = strconv.FormatInt(*metricValue.Delta, 10)
+	case models.MGauge:
+		res = strconv.FormatFloat(*metricValue.Value, 'f', 3, 64)
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(metricValue))
+	writeBody(rw, []byte(res))
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 
-	metricData := models.MetricRaw{
-		Type:  chi.URLParam(r, "metricType"),
-		Name:  chi.URLParam(r, "metricName"),
-		Value: chi.URLParam(r, "metricValue"),
+	urlVal := chi.URLParam(r, "metricValue")
+	mType := chi.URLParam(r, "metricType")
+	var val float64
+	var delta int64
+	var err error
+	switch mType {
+	case models.MCounter:
+		delta, err = strconv.ParseInt(urlVal, 10, 64)
+		if err != nil {
+			log.Println(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	case models.MGauge:
+		val, err = strconv.ParseFloat(urlVal, 64)
+		if err != nil {
+			log.Println(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+	metricData := models.Metrics{
+		MType: mType,
+		ID:    chi.URLParam(r, "metricName"),
+		Value: &val,
+		Delta: &delta,
 	}
 
-	err := api.store.UpdateMetric(metricData)
-	switch err {
-	case sm.ErrorBadMetricFormat:
+	err = api.store.Update(metricData)
+	switch {
+	case errors.Is(err, sm.ErrorBadMetricFormat):
 		rw.WriteHeader(http.StatusBadRequest)
 		return
-	case sm.ErrorMetricNotFound:
+	case errors.Is(err, sm.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
 		return
-	case sm.ErrorUnknownMetricType:
+	case errors.Is(err, sm.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
 		return
 	}
@@ -90,4 +125,11 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
+}
+
+func writeBody(rw http.ResponseWriter, body []byte) {
+	_, werr := rw.Write(body)
+	if werr != nil {
+		log.Println("Failed writing response body:", werr)
+	}
 }

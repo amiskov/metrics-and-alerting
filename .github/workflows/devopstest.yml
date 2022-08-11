@@ -149,10 +149,10 @@ jobs:
 # При реализации задействовать одну из распространенных библиотек. Например: encoding/json
 #   * Обмен с сервером организовать с использованием следующей структуры:
 #   type Metrics struct {
-# 	    ID    string   `json:"id"`              // Имя метрики
-# 	    MType string   `json:"type"`            // Параметр принимающий значение gauge или counter
-# 	    Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
-# 	    Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
+#       ID    string   `json:"id"`              // Имя метрики
+#       MType string   `json:"type"`            // Параметр принимающий значение gauge или counter
+#       Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
+#       Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
 #   }
 #   * Для передачи метрик на сервер использовать Content-Type: "application/json",
 #     в теле запроса описанный выше JSON, передача через: POST update/
@@ -267,11 +267,11 @@ jobs:
 # Реализовать механизм подписывания передаваемых данных по алгоритму sha256
 # Для этого расширим структуру
 #   type Metrics struct {
-# 	    ID    string   `json:"id"`              // Имя метрики
-# 	    MType string   `json:"type"`            // Параметр принимающий значение gauge или counter
-# 	    Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
-# 	    Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
-# 	    Hash  string   `json:"hash,omitempty"`  // Значение hash-функции
+#       ID    string   `json:"id"`              // Имя метрики
+#       MType string   `json:"type"`            // Параметр принимающий значение gauge или counter
+#       Delta *int64   `json:"delta,omitempty"` // Значение метрики в случае передачи counter
+#       Value *float64 `json:"value,omitempty"` // Значение метрики в случае передачи gauge
+#       Hash  string   `json:"hash,omitempty"`  // Значение hash-функции
 #   }
 # Хеш необходимо считать от строки, с учетом ключа, который предан агенту/серверу на старте.
 #   ** для counter - hash(fmt.Sprintf("%s:counter:%d", id, delta), key)
