@@ -95,23 +95,26 @@ func (s *service) updateMetrics() {
 }
 
 func (s *service) updateCounter(id string) {
+	var m models.Metrics
+
 	if _, ok := s.metrics[id]; ok {
-		*s.metrics[id].Delta++
+		m = s.metrics[id]
 	} else {
 		zero := int64(0)
-		s.metrics[id] = models.Metrics{
+		m = models.Metrics{
 			ID:    id,
 			MType: models.MCounter,
 			Delta: &zero,
 		}
 	}
 
-	var hashingErr error
-	m := s.metrics[id]
-	m.Hash, hashingErr = m.GetHash(s.hashingKey)
-	if hashingErr != nil {
-		log.Printf("failed creating hash for %s: %v", id, hashingErr)
+	*m.Delta++
+
+	hash, err := m.GetHash(s.hashingKey)
+	if err != nil {
+		log.Printf("failed creating hash for %s: %v", id, err)
 	}
+	m.Hash = hash
 
 	s.metrics[id] = m
 }

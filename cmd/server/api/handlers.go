@@ -27,6 +27,7 @@ var indexTmpl = template.Must(
 			 {{if (eq $m.MType "counter")}}
 			 	<td>{{$m.Delta}}</td>
 			 {{ end }}
+			 	<td>{{$m.Hash}}</td>
 			 </tr>
 		{{end}}
 		</table>`))

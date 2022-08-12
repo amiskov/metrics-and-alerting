@@ -207,22 +207,28 @@ func (s *store) update(m models.Metrics) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
+	if m.MType != models.MCounter && m.MType != models.MGauge {
+		return models.ErrorUnknownMetricType
+	}
+
 	if err := s.checkHash(m); err != nil {
 		return err
 	}
 
-	switch m.MType {
-	case models.MCounter:
-		if _, ok := s.metrics[m.ID]; ok {
-			*s.metrics[m.ID].Delta += *m.Delta
-		} else {
-			s.metrics[m.ID] = m
+	updatedMetric := m
+
+	if s.metrics[m.ID].MType == models.MCounter {
+		delta := *s.metrics[m.ID].Delta + *m.Delta
+		updatedMetric.Delta = &delta
+
+		hash, err := updatedMetric.GetHash(s.hashingKey)
+		if err != nil {
+			return err
 		}
-	case models.MGauge:
-		s.metrics[m.ID] = m
-	default:
-		return models.ErrorUnknownMetricType
+		updatedMetric.Hash = hash
 	}
+
+	s.metrics[m.ID] = updatedMetric
 
 	return nil
 }
