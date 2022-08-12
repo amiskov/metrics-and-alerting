@@ -14,6 +14,7 @@ type config struct {
 	StoreFile     string
 	Restore       bool
 	HashingKey    string
+	PgDSN         string
 }
 
 func Parse() *config {
@@ -35,6 +36,7 @@ func (cfg *config) updateFromFlags() {
 	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
 	flagStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
 	flagHashingKey := flag.String("k", cfg.HashingKey, "Hashing key.")
+	flagPgDSN := flag.String("d", cfg.PgDSN, "Postgres DSN.")
 
 	flag.Parse()
 
@@ -43,6 +45,7 @@ func (cfg *config) updateFromFlags() {
 	cfg.StoreInterval = *flagStoreInterval
 	cfg.StoreFile = *flagStoreFile
 	cfg.HashingKey = *flagHashingKey
+	cfg.PgDSN = *flagPgDSN // priority is higher than `flagStoreFile`
 }
 
 func (cfg *config) updateFromEnv() {
@@ -68,5 +71,8 @@ func (cfg *config) updateFromEnv() {
 	}
 	if hashingKey, ok := os.LookupEnv("KEY"); ok {
 		cfg.HashingKey = hashingKey
+	}
+	if dsn, ok := os.LookupEnv("DATABASE_DSN"); ok {
+		cfg.PgDSN = dsn
 	}
 }

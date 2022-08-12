@@ -122,6 +122,22 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusNotFound)
 }
 
+func ping(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "text/plain")
+
+	// Добавьте хендлер GET /ping, который при запросе проверяет соединение с базой данных.
+	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
+
+	err := errors.New("not implemented")
+	if err == nil {
+		rw.WriteHeader(http.StatusOK)
+		writeBody(rw, []byte("DB connected successfully"))
+	} else {
+		rw.WriteHeader(http.StatusInternalServerError)
+		writeBody(rw, []byte("DB connection failed"))
+	}
+}
+
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
