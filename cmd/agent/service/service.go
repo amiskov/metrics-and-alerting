@@ -8,28 +8,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/common"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type service struct {
-	mx       *sync.RWMutex
-	memStats *runtime.MemStats
-
-	metricsDB models.MetricsDB
-
-	runtimeMetrics map[string]models.Gauge
-	pollCount      models.Counter
-	randomValue    models.Gauge
-	hashingKey     []byte
+	mx         *sync.RWMutex
+	memStats   *runtime.MemStats
+	metrics    models.MetricsDB
+	hashingKey []byte
 }
 
 func New(key []byte) *service {
 	return &service{
-		mx:             new(sync.RWMutex),
-		memStats:       new(runtime.MemStats),
-		runtimeMetrics: make(map[string]models.Gauge),
-		hashingKey:     key,
+		mx:         new(sync.RWMutex),
+		memStats:   new(runtime.MemStats),
+		metrics:    make(models.MetricsDB),
+		hashingKey: key,
 	}
 }
 
@@ -52,42 +46,11 @@ func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	res := []models.Metrics{}
-
-	// Get Runtime Metrics
-	for name, val := range s.runtimeMetrics {
-		val := float64(val)
-		m := models.Metrics{
-			MType: models.MGauge,
-			ID:    name,
-			Value: &val,
-		}
-		hash, _ := common.Hash(m, s.hashingKey)
-		m.Hash = hash
-		res = append(res, m)
+	metrics := []models.Metrics{}
+	for _, m := range s.metrics {
+		metrics = append(metrics, m)
 	}
-
-	val := int64(s.pollCount)
-	pcm := models.Metrics{
-		MType: models.MCounter,
-		ID:    "PollCount",
-		Delta: &val,
-	}
-	hash, _ := common.Hash(pcm, s.hashingKey)
-	pcm.Hash = hash
-	res = append(res, pcm)
-
-	randVal := float64(s.randomValue)
-	rm := models.Metrics{
-		MType: models.MGauge,
-		ID:    "RandomValue",
-		Value: &randVal,
-	}
-	hash, _ = common.Hash(rm, s.hashingKey)
-	rm.Hash = hash
-	res = append(res, rm)
-
-	return res
+	return metrics
 }
 
 func (s *service) updateMetrics() {
@@ -96,35 +59,76 @@ func (s *service) updateMetrics() {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
-	s.runtimeMetrics["Alloc"] = models.Gauge(s.memStats.Alloc)
-	s.runtimeMetrics["BuckHashSys"] = models.Gauge(s.memStats.BuckHashSys)
-	s.runtimeMetrics["Frees"] = models.Gauge(s.memStats.Frees)
-	s.runtimeMetrics["GCCPUFraction"] = models.Gauge(s.memStats.GCCPUFraction)
-	s.runtimeMetrics["GCSys"] = models.Gauge(s.memStats.GCSys)
-	s.runtimeMetrics["HeapAlloc"] = models.Gauge(s.memStats.HeapAlloc)
-	s.runtimeMetrics["HeapIdle"] = models.Gauge(s.memStats.HeapIdle)
-	s.runtimeMetrics["HeapInuse"] = models.Gauge(s.memStats.HeapInuse)
-	s.runtimeMetrics["HeapObjects"] = models.Gauge(s.memStats.HeapObjects)
-	s.runtimeMetrics["HeapReleased"] = models.Gauge(s.memStats.HeapReleased)
-	s.runtimeMetrics["HeapSys"] = models.Gauge(s.memStats.HeapSys)
-	s.runtimeMetrics["LastGC"] = models.Gauge(s.memStats.LastGC)
-	s.runtimeMetrics["Lookups"] = models.Gauge(s.memStats.Lookups)
-	s.runtimeMetrics["MCacheInuse"] = models.Gauge(s.memStats.MCacheInuse)
-	s.runtimeMetrics["MCacheSys"] = models.Gauge(s.memStats.MCacheSys)
-	s.runtimeMetrics["MSpanInuse"] = models.Gauge(s.memStats.MSpanInuse)
-	s.runtimeMetrics["MSpanSys"] = models.Gauge(s.memStats.MSpanSys)
-	s.runtimeMetrics["Mallocs"] = models.Gauge(s.memStats.Mallocs)
-	s.runtimeMetrics["NextGC"] = models.Gauge(s.memStats.NextGC)
-	s.runtimeMetrics["NumForcedGC"] = models.Gauge(s.memStats.NumForcedGC)
-	s.runtimeMetrics["NumGC"] = models.Gauge(s.memStats.NumGC)
-	s.runtimeMetrics["OtherSys"] = models.Gauge(s.memStats.OtherSys)
-	s.runtimeMetrics["PauseTotalNs"] = models.Gauge(s.memStats.PauseTotalNs)
-	s.runtimeMetrics["StackInuse"] = models.Gauge(s.memStats.StackInuse)
-	s.runtimeMetrics["StackSys"] = models.Gauge(s.memStats.StackSys)
-	s.runtimeMetrics["Sys"] = models.Gauge(s.memStats.Sys)
-	s.runtimeMetrics["TotalAlloc"] = models.Gauge(s.memStats.TotalAlloc)
+	s.updateGauge("Alloc", float64(s.memStats.Alloc))
+	s.updateGauge("BuckHashSys", float64(s.memStats.BuckHashSys))
+	s.updateGauge("Frees", float64(s.memStats.Frees))
+	s.updateGauge("GCCPUFraction", s.memStats.GCCPUFraction)
+	s.updateGauge("GCSys", float64(s.memStats.GCSys))
+	s.updateGauge("HeapAlloc", float64(s.memStats.HeapAlloc))
+	s.updateGauge("HeapIdle", float64(s.memStats.HeapIdle))
+	s.updateGauge("HeapInuse", float64(s.memStats.HeapInuse))
+	s.updateGauge("HeapObjects", float64(s.memStats.HeapObjects))
+	s.updateGauge("HeapReleased", float64(s.memStats.HeapReleased))
+	s.updateGauge("HeapSys", float64(s.memStats.HeapSys))
+	s.updateGauge("LastGC", float64(s.memStats.LastGC))
+	s.updateGauge("Lookups", float64(s.memStats.Lookups))
+	s.updateGauge("MCacheInuse", float64(s.memStats.MCacheInuse))
+	s.updateGauge("MCacheSys", float64(s.memStats.MCacheSys))
+	s.updateGauge("MSpanInuse", float64(s.memStats.MSpanInuse))
+	s.updateGauge("MSpanSys", float64(s.memStats.MSpanSys))
+	s.updateGauge("Mallocs", float64(s.memStats.Mallocs))
+	s.updateGauge("NextGC", float64(s.memStats.NextGC))
+	s.updateGauge("NumForcedGC", float64(s.memStats.NumForcedGC))
+	s.updateGauge("NumGC", float64(s.memStats.NumGC))
+	s.updateGauge("OtherSys", float64(s.memStats.OtherSys))
+	s.updateGauge("PauseTotalNs", float64(s.memStats.PauseTotalNs))
+	s.updateGauge("StackInuse", float64(s.memStats.StackInuse))
+	s.updateGauge("StackSys", float64(s.memStats.StackSys))
+	s.updateGauge("Sys", float64(s.memStats.Sys))
+	s.updateGauge("TotalAlloc", float64(s.memStats.TotalAlloc))
 
-	s.pollCount++
-	s.randomValue = models.Gauge(rand.Float64()) // nolint: gosec
+	s.updateCounter("PollCount")
+
+	s.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
+
 	log.Println("Metrics has been updated.")
+}
+
+func (s *service) updateCounter(id string) {
+	if _, ok := s.metrics[id]; ok {
+		*s.metrics[id].Delta++
+	} else {
+		zero := int64(0)
+		s.metrics[id] = models.Metrics{
+			ID:    id,
+			MType: models.MCounter,
+			Delta: &zero,
+		}
+	}
+
+	var hashingErr error
+	m := s.metrics[id]
+	m.Hash, hashingErr = m.GetHash(s.hashingKey)
+	if hashingErr != nil {
+		log.Printf("failed creating hash for %s: %v", id, hashingErr)
+	}
+
+	log.Printf("%+v\n", s.metrics[id])
+}
+
+func (s *service) updateGauge(id string, val float64) {
+	m := &models.Metrics{
+		ID:    id,
+		MType: models.MGauge,
+		Value: &val,
+	}
+
+	var hashingErr error
+	m.Hash, hashingErr = m.GetHash(s.hashingKey)
+	if hashingErr != nil {
+		log.Printf("failed creating hash for %s: %v", id, hashingErr)
+	}
+
+	s.metrics[id] = *m
+	log.Printf("%+v\n", s.metrics[id])
 }

@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
-	"github.com/amiskov/metrics-and-alerting/internal/common"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -177,14 +175,26 @@ func (s *store) update(m models.Metrics) error {
 	defer s.mx.Unlock()
 
 	agentHash := m.Hash
-	serverHash, err := common.Hash(m, s.hashingKey)
+	serverHash, err := m.GetHash(s.hashingKey)
 	if err != nil {
-		return sm.ErrorBadMetricFormat
+		log.Println("failed creating server hash", err)
+		return models.ErrorBadMetricFormat
 	}
-	agHex, _ := hex.DecodeString(agentHash)
-	seHex, _ := hex.DecodeString(serverHash)
+
+	agHex, err := hex.DecodeString(agentHash)
+	if err != nil {
+		log.Println("bad agent hash", err)
+		return models.ErrorBadMetricFormat
+	}
+
+	seHex, err := hex.DecodeString(serverHash)
+	if err != nil {
+		log.Println("bad server hash", err)
+		return models.ErrorBadMetricFormat
+	}
+
 	if !hmac.Equal(agHex, seHex) {
-		return sm.ErrorBadMetricFormat
+		return models.ErrorBadMetricFormat
 	}
 
 	switch m.MType {
@@ -197,7 +207,7 @@ func (s *store) update(m models.Metrics) error {
 	case models.MGauge:
 		s.metrics[m.ID] = m
 	default:
-		return sm.ErrorUnknownMetricType
+		return models.ErrorUnknownMetricType
 	}
 
 	return nil
@@ -219,7 +229,7 @@ func (s store) GetAll() []models.Metrics {
 
 func (s store) Get(metricType string, metricName string) (models.Metrics, error) {
 	if metricType != models.MCounter && metricType != models.MGauge {
-		return models.Metrics{}, sm.ErrorMetricNotFound
+		return models.Metrics{}, models.ErrorMetricNotFound
 	}
 
 	s.mx.Lock()
@@ -227,7 +237,7 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 	s.mx.Unlock()
 
 	if !ok {
-		return metric, sm.ErrorMetricNotFound
+		return metric, models.ErrorMetricNotFound
 	}
 	return metric, nil
 }

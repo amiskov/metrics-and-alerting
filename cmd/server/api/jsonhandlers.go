@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -69,23 +68,23 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+sm.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
 	err = api.store.Update(metricData)
 	switch {
-	case errors.Is(err, sm.ErrorBadMetricFormat):
+	case errors.Is(err, models.ErrorBadMetricFormat):
 		http.Error(rw, err.Error(), http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+sm.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
-	case errors.Is(err, sm.ErrorMetricNotFound):
+	case errors.Is(err, models.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
-		writeBody(rw, []byte(`{"error":"`+sm.ErrorMetricNotFound.Error()+`"}`))
+		writeBody(rw, []byte(`{"error":"`+models.ErrorMetricNotFound.Error()+`"}`))
 		return
-	case errors.Is(err, sm.ErrorUnknownMetricType):
+	case errors.Is(err, models.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
-		writeBody(rw, []byte(`{"error":"`+sm.ErrorUnknownMetricType.Error()+`"}`))
+		writeBody(rw, []byte(`{"error":"`+models.ErrorUnknownMetricType.Error()+`"}`))
 		return
 	}
 

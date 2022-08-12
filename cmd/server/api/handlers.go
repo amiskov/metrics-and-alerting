@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi"
 
-	sm "github.com/amiskov/metrics-and-alerting/cmd/server/models"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -103,13 +102,13 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 
 	err = api.store.Update(metricData)
 	switch {
-	case errors.Is(err, sm.ErrorBadMetricFormat):
+	case errors.Is(err, models.ErrorBadMetricFormat):
 		rw.WriteHeader(http.StatusBadRequest)
 		return
-	case errors.Is(err, sm.ErrorMetricNotFound):
+	case errors.Is(err, models.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
 		return
-	case errors.Is(err, sm.ErrorUnknownMetricType):
+	case errors.Is(err, models.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
 		return
 	}

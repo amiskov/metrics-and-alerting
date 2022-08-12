@@ -29,8 +29,7 @@ func main() {
 		PollInterval:   2 * time.Second,
 	}
 	if err := env.Parse(&cfg); err != nil {
-		log.Printf("%+v\n", err)
-		panic(err)
+		log.Fatal(err)
 	}
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()
