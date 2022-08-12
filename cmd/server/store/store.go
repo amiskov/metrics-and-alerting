@@ -186,9 +186,6 @@ func (s *store) checkHash(m models.Metrics) error {
 		return models.ErrorBadMetricFormat
 	}
 
-	println("A:", m.Hash)
-	println("S:", serverHash)
-
 	seHex, err := hex.DecodeString(serverHash)
 	if err != nil {
 		log.Println("bad server hash", err)
@@ -211,21 +208,32 @@ func (s *store) update(m models.Metrics) error {
 		return models.ErrorUnknownMetricType
 	}
 
-	if err := s.checkHash(m); err != nil {
-		return err
+	if m.Hash != "" {
+		if err := s.checkHash(m); err != nil {
+			return err
+		}
+	}
+
+	// Metric not exists on the server
+	if _, ok := s.metrics[m.ID]; !ok {
+		s.metrics[m.ID] = m
+		return nil
 	}
 
 	updatedMetric := m
 
-	if s.metrics[m.ID].MType == models.MCounter {
+	// Update existing counter metric
+	if m.MType == models.MCounter {
 		delta := *s.metrics[m.ID].Delta + *m.Delta
 		updatedMetric.Delta = &delta
 
-		hash, err := updatedMetric.GetHash(s.hashingKey)
-		if err != nil {
-			return err
+		if m.Hash != "" {
+			newHash, err := updatedMetric.GetHash(s.hashingKey)
+			if err != nil {
+				return err
+			}
+			updatedMetric.Hash = newHash
 		}
-		updatedMetric.Hash = hash
 	}
 
 	s.metrics[m.ID] = updatedMetric
