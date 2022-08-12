@@ -113,7 +113,7 @@ func (s *service) updateCounter(id string) {
 		log.Printf("failed creating hash for %s: %v", id, hashingErr)
 	}
 
-	log.Printf("%+v\n", s.metrics[id])
+	s.metrics[id] = m
 }
 
 func (s *service) updateGauge(id string, val float64) {
@@ -130,5 +130,4 @@ func (s *service) updateGauge(id string, val float64) {
 	}
 
 	s.metrics[id] = *m
-	log.Printf("%+v\n", s.metrics[id])
 }
