@@ -17,3 +17,5 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 	Hash  string   `json:"hash,omitempty"`  // значение хеш-функции
 }
+
+type MetricsDB map[string]Metrics

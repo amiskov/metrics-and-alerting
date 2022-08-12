@@ -16,6 +16,8 @@ type service struct {
 	mx       *sync.RWMutex
 	memStats *runtime.MemStats
 
+	metricsDB models.MetricsDB
+
 	runtimeMetrics map[string]models.Gauge
 	pollCount      models.Counter
 	randomValue    models.Gauge

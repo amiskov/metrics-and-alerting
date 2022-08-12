@@ -27,11 +27,9 @@ type Cfg struct {
 	HashingKey    []byte
 }
 
-type metricsDB map[string]models.Metrics
-
 type store struct {
 	mx            *sync.Mutex
-	metrics       metricsDB
+	metrics       models.MetricsDB
 	storeInterval time.Duration
 	file          *os.File
 	hashingKey    []byte
@@ -45,7 +43,7 @@ func New(cfg *Cfg) (*store, closer, error) {
 
 	s := store{
 		mx:            new(sync.Mutex),
-		metrics:       make(metricsDB),
+		metrics:       make(models.MetricsDB),
 		storeInterval: cfg.StoreInterval,
 		hashingKey:    cfg.HashingKey,
 	}
@@ -115,7 +113,7 @@ func (s *store) addFileStorage(name string) (func() error, error) {
 	return file.Close, nil
 }
 
-func restoreFromFile(file *os.File, metrics metricsDB) error {
+func restoreFromFile(file *os.File, metrics models.MetricsDB) error {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&storedMetrics)
