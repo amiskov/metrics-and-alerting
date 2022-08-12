@@ -62,7 +62,6 @@ func New(cfg *Cfg) (*store, closer, error) {
 			log.Printf("Can't restore from a file %s. Error: %s.", cfg.StoreFile, err)
 			return nil, nil, err
 		}
-		log.Printf("Metrics data restored from %s", cfg.StoreFile)
 	}
 
 	var ticker *time.Ticker
@@ -120,6 +119,7 @@ func restoreFromFile(file *os.File, metrics models.MetricsDB) error {
 		for _, m := range storedMetrics {
 			metrics[m.ID] = m
 		}
+		log.Printf("Metrics data restored from %s", file.Name())
 		return nil
 	case errors.Is(err, io.EOF):
 		log.Println("File is empty, nothing to restore.")
@@ -185,6 +185,9 @@ func (s *store) checkHash(m models.Metrics) error {
 		log.Println("failed creating server hash", err)
 		return models.ErrorBadMetricFormat
 	}
+
+	println("A:", m.Hash)
+	println("S:", serverHash)
 
 	seHex, err := hex.DecodeString(serverHash)
 	if err != nil {

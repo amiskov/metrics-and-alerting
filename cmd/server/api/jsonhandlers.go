@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -62,17 +63,22 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 
+	body, berr := io.ReadAll(r.Body)
+	if berr != nil {
+		log.Println("Cant read body")
+		return
+	}
+
 	metricData := models.Metrics{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&metricData)
-	if err != nil {
-		log.Printf("Error while decoding received metric data: %s. URL is: %s", err, r.URL)
+	jErr := json.Unmarshal(body, &metricData)
+	if jErr != nil {
+		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
-	err = api.store.Update(metricData)
+	err := api.store.Update(metricData)
 	switch {
 	case errors.Is(err, models.ErrorBadMetricFormat):
 		http.Error(rw, err.Error(), http.StatusBadRequest)
