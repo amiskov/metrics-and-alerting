@@ -14,6 +14,7 @@ type Storage interface {
 	Update(models.Metrics) error
 	Get(mType string, mName string) (models.Metrics, error)
 	GetAll() []models.Metrics
+	Ping() error
 }
 
 type metricsAPI struct {

@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/jackc/pgx/v4"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
@@ -16,6 +20,14 @@ func main() {
 	finished := make(chan bool)
 
 	envCfg := config.Parse()
+
+	conn, err := pgx.Connect(ctx, envCfg.PgDSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close(ctx)
+
 	storeCfg := store.Cfg{
 		StoreFile:     envCfg.StoreFile,
 		StoreInterval: envCfg.StoreInterval,
@@ -23,11 +35,12 @@ func main() {
 		Ctx:           ctx,
 		Finished:      finished, // to make sure we wrote the data while terminating
 		HashingKey:    []byte(envCfg.HashingKey),
+		DB:            conn,
 	}
 
 	storage, closeFile, err := store.New(&storeCfg)
 	if err != nil {
-		log.Fatalln("Can't init server store:", err)
+		log.Println("Can't init server store:", err)
 	}
 	defer func() {
 		if err := closeFile(); err != nil {

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v4"
+
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -23,6 +25,7 @@ type Cfg struct {
 	Ctx           context.Context
 	Finished      chan bool
 	HashingKey    []byte
+	DB            *pgx.Conn
 }
 
 type store struct {
@@ -31,6 +34,7 @@ type store struct {
 	storeInterval time.Duration
 	file          *os.File
 	hashingKey    []byte
+	DB            *pgx.Conn
 }
 
 type closer func() error
@@ -44,6 +48,7 @@ func New(cfg *Cfg) (*store, closer, error) {
 		metrics:       make(models.MetricsDB),
 		storeInterval: cfg.StoreInterval,
 		hashingKey:    cfg.HashingKey,
+		DB:            cfg.DB,
 	}
 
 	// Init file Storage
@@ -268,4 +273,10 @@ func (s store) Get(metricType string, metricName string) (models.Metrics, error)
 		return metric, models.ErrorMetricNotFound
 	}
 	return metric, nil
+}
+
+func (s store) Ping() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.DB.Ping(ctx)
 }

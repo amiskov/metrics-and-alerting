@@ -122,17 +122,19 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusNotFound)
 }
 
-func ping(rw http.ResponseWriter, r *http.Request) {
+func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 
 	// Добавьте хендлер GET /ping, который при запросе проверяет соединение с базой данных.
 	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
 
-	err := errors.New("not implemented")
+	err := api.store.Ping()
+
 	if err == nil {
 		rw.WriteHeader(http.StatusOK)
 		writeBody(rw, []byte("DB connected successfully"))
 	} else {
+		log.Println("can't connect to DB:", err)
 		rw.WriteHeader(http.StatusInternalServerError)
 		writeBody(rw, []byte("DB connection failed"))
 	}
