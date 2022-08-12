@@ -169,21 +169,20 @@ func (s *store) Update(m models.Metrics) error {
 	return s.saveToFile()
 }
 
-// Updates the inmem values.
-func (s *store) update(m models.Metrics) error {
-	s.mx.Lock()
-	defer s.mx.Unlock()
+func (s *store) checkHash(m models.Metrics) error {
+	if m.Hash == "" {
+		return nil // nothing to check
+	}
 
-	agentHash := m.Hash
-	serverHash, err := m.GetHash(s.hashingKey)
+	metricHash, err := hex.DecodeString(m.Hash)
 	if err != nil {
-		log.Println("failed creating server hash", err)
+		log.Println("bad agent hash", err)
 		return models.ErrorBadMetricFormat
 	}
 
-	agHex, err := hex.DecodeString(agentHash)
+	serverHash, err := m.GetHash(s.hashingKey)
 	if err != nil {
-		log.Println("bad agent hash", err)
+		log.Println("failed creating server hash", err)
 		return models.ErrorBadMetricFormat
 	}
 
@@ -193,8 +192,20 @@ func (s *store) update(m models.Metrics) error {
 		return models.ErrorBadMetricFormat
 	}
 
-	if !hmac.Equal(agHex, seHex) {
+	if !hmac.Equal(metricHash, seHex) {
 		return models.ErrorBadMetricFormat
+	}
+
+	return nil
+}
+
+// Updates the inmem values.
+func (s *store) update(m models.Metrics) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	if err := s.checkHash(m); err != nil {
+		return err
 	}
 
 	switch m.MType {
