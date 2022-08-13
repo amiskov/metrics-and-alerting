@@ -63,3 +63,7 @@ func (s store) GetAll() []models.Metrics {
 func (s *store) Update(m models.Metrics) error {
 	return nil
 }
+
+func (s *store) Dump() error {
+	return nil
+}

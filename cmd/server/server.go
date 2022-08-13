@@ -22,7 +22,7 @@ func main() {
 	storage, storageCloser := initStorage(ctx, finished, envCfg)
 	defer storageCloser()
 
-	repo := repo.New(envCfg, storage)
+	repo := repo.New(ctx, finished, envCfg, storage)
 
 	metricsAPI := api.New(repo)
 	go metricsAPI.Run(envCfg.Address)
