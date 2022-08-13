@@ -12,6 +12,7 @@ import (
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/db"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
 )
 
@@ -27,6 +28,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer conn.Close(ctx)
+
+	// Always creates new `gauge` and `counter` PG types and `metrics` table.
+	if dbErr := db.Migrate(conn, "sql/schema.sql"); dbErr != nil {
+		log.Println(dbErr)
+	}
 
 	storeCfg := store.Cfg{
 		StoreFile:     envCfg.StoreFile,
