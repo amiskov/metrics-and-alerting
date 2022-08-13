@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 )
 
@@ -81,12 +83,7 @@ func TestUpdateMetric(t *testing.T) {
 			finished := make(chan bool)
 			defer cancel()
 
-			storage, closeFile, err := file.New(&file.Cfg{
-				Ctx:       ctx,
-				Finished:  finished,
-				StoreFile: "",
-				Restore:   false,
-			})
+			storage, closeFile, err := file.New("")
 			if err != nil {
 				log.Fatalln("Creating server store failed.", err)
 			}
@@ -95,7 +92,12 @@ func TestUpdateMetric(t *testing.T) {
 					log.Println("failed closing file storage:", err)
 				}
 			}()
-			metricsAPI := api.New(storage)
+			envCfg := &config.Config{
+				StoreFile: "",
+				Restore:   false,
+			}
+			repo := repo.New(ctx, finished, envCfg, storage)
+			metricsAPI := api.New(repo)
 			metricsAPI.Router.ServeHTTP(w, request)
 
 			res := w.Result()

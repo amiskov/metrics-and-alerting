@@ -52,18 +52,10 @@ func (s store) Ping(ctx context.Context) error {
 	return s.DB.Ping(ctx)
 }
 
-func (s store) Get(metricType string, metricName string) (models.Metrics, error) {
-	return models.Metrics{}, nil
-}
-
-func (s store) GetAll() []models.Metrics {
+func (s *store) Dump(inmemDB models.MetricsDB) error {
 	return nil
 }
 
-func (s *store) Update(m models.Metrics) error {
-	return nil
-}
-
-func (s *store) Dump() error {
+func (s *store) Restore(inmemDB models.MetricsDB) error {
 	return nil
 }

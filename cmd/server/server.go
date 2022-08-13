@@ -19,7 +19,7 @@ func main() {
 
 	envCfg := config.Parse()
 
-	storage, storageCloser := initStorage(ctx, finished, envCfg)
+	storage, storageCloser := initStorage(ctx, envCfg)
 	defer storageCloser()
 
 	repo := repo.New(ctx, finished, envCfg, storage)
@@ -45,18 +45,9 @@ func main() {
 	log.Println("Server has been successfully terminated. Bye!")
 }
 
-func initStorage(ctx context.Context, finished chan bool, envCfg *config.Config) (repo.Storage, func()) {
+func initStorage(ctx context.Context, envCfg *config.Config) (repo.Storage, func()) {
 	if envCfg.PgDSN == "" {
-		storeCfg := file.Cfg{
-			StoreFile:     envCfg.StoreFile,
-			StoreInterval: envCfg.StoreInterval,
-			Restore:       envCfg.Restore,
-			Ctx:           ctx,
-			Finished:      finished, // to make sure we wrote the data while terminating
-			HashingKey:    []byte(envCfg.HashingKey),
-		}
-
-		storage, closeFile, err := file.New(&storeCfg)
+		storage, closeFile, err := file.New(envCfg.StoreFile)
 		if err != nil {
 			log.Println("Can't init server store:", err)
 		}

@@ -5,6 +5,8 @@ import (
 	"crypto/hmac"
 	"encoding/hex"
 	"log"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
@@ -13,16 +15,20 @@ import (
 
 type Storage interface {
 	Ping(context.Context) error
-	Get(metricType string, metricName string) (models.Metrics, error)
-	GetAll() []models.Metrics
-	Update(m models.Metrics) error
-	Dump() error
+	Dump(models.MetricsDB) error
+	Restore(models.MetricsDB) error
 }
 
+// Repo keeps metrics inmemory, dumps metrics to persistent `Storage` intervally,
+// and preloads metrics from `Storage` if `Restore` is `true`.
 type Repo struct {
-	inmemDB       models.MetricsDB
+	mx *sync.Mutex
+
+	// TODO: Update, Get and other methods could be handled as methods of the MetricsDB itself.
+	inmemDB models.MetricsDB
+
 	StoreInterval time.Duration // store immediately if `0`
-	Restore       bool          // restore from file on start if `true`
+	Restore       bool          // restore from persistent storage on start if `true`
 	Ctx           context.Context
 	Finished      chan bool // to make sure we wrote the data while terminating
 	HashingKey    []byte
@@ -31,7 +37,7 @@ type Repo struct {
 
 func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage) *Repo {
 	repo := &Repo{
-		// Handle inmemory storage inside repo!
+		mx:            new(sync.Mutex),
 		inmemDB:       make(models.MetricsDB),
 		StoreInterval: cfg.StoreInterval,
 		Restore:       cfg.Restore,
@@ -39,6 +45,14 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 		Finished:      finished,
 		HashingKey:    []byte(cfg.HashingKey),
 		DB:            s,
+	}
+
+	// Restore from file or create empty metrics DB
+	if cfg.Restore {
+		err := repo.DB.Restore(repo.inmemDB)
+		if err != nil {
+			log.Println("can't restore data from storage:", err)
+		}
 	}
 
 	repo.SavePeriodically()
@@ -49,7 +63,7 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 func (r Repo) SavePeriodically() {
 	var ticker *time.Ticker
 	save := func() {
-		if err := r.DB.Dump(); err != nil {
+		if err := r.DB.Dump(r.inmemDB); err != nil {
 			log.Println("Failed saving metrics.", err)
 			return
 		}
@@ -92,11 +106,64 @@ func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) 
 		return models.Metrics{}, models.ErrorMetricNotFound
 	}
 
-	return r.DB.Get(metricType, metricName)
+	r.mx.Lock()
+	metric, ok := r.inmemDB[metricName]
+	r.mx.Unlock()
+
+	if !ok {
+		return metric, models.ErrorMetricNotFound
+	}
+
+	return metric, nil
 }
 
+// Get all metrics from inmemory storage
 func (r Repo) GetAll() []models.Metrics {
-	return r.DB.GetAll()
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	metrics := []models.Metrics{}
+	for _, m := range r.inmemDB {
+		metrics = append(metrics, m)
+	}
+
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
+	})
+
+	return metrics
+}
+
+// Updates the inmem values.
+func (r *Repo) update(m models.Metrics) error {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	// Metric not exists on the server
+	if _, ok := r.inmemDB[m.ID]; !ok {
+		r.inmemDB[m.ID] = m
+		return nil
+	}
+
+	updatedMetric := m
+
+	// Update existing counter metric
+	if m.MType == models.MCounter {
+		delta := *r.inmemDB[m.ID].Delta + *m.Delta
+		updatedMetric.Delta = &delta
+
+		if m.Hash != "" {
+			newHash, err := updatedMetric.GetHash(r.HashingKey)
+			if err != nil {
+				return err
+			}
+			updatedMetric.Hash = newHash
+		}
+	}
+
+	r.inmemDB[m.ID] = updatedMetric
+
+	return nil
 }
 
 func (r *Repo) Update(m models.Metrics) error {
@@ -112,7 +179,17 @@ func (r *Repo) Update(m models.Metrics) error {
 		}
 	}
 
-	return r.DB.Update(m)
+	err := r.update(m) // inmemory update
+	if err != nil {
+		return err
+	}
+
+	// Immediately save metrics to the persistent storage.
+	if r.StoreInterval == 0 {
+		return r.DB.Dump(r.inmemDB)
+	}
+
+	return nil
 }
 
 func (r *Repo) checkHash(m models.Metrics) error {
