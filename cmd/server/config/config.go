@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type config struct {
+type Config struct {
 	Address       string
 	StoreInterval time.Duration
 	StoreFile     string
@@ -17,8 +17,8 @@ type config struct {
 	PgDSN         string
 }
 
-func Parse() *config {
-	cfg := config{
+func Parse() *Config {
+	cfg := Config{
 		// Defaults
 		Address:       "localhost:8080",
 		Restore:       true,
@@ -30,7 +30,7 @@ func Parse() *config {
 	return &cfg
 }
 
-func (cfg *config) updateFromFlags() {
+func (cfg *Config) updateFromFlags() {
 	flagAddress := flag.String("a", cfg.Address, "Server address.")
 	flagRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
 	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
@@ -48,7 +48,7 @@ func (cfg *config) updateFromFlags() {
 	cfg.PgDSN = *flagPgDSN // priority is higher than `flagStoreFile`
 }
 
-func (cfg *config) updateFromEnv() {
+func (cfg *Config) updateFromEnv() {
 	if addr, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Address = addr
 	}

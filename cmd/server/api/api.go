@@ -11,19 +11,19 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-type Storage interface {
-	Update(models.Metrics) error
-	Get(mType string, mName string) (models.Metrics, error)
-	GetAll() []models.Metrics
+type Repo interface {
 	Ping(context.Context) error
+	Get(metricType string, metricName string) (models.Metrics, error)
+	GetAll() []models.Metrics
+	Update(m models.Metrics) error
 }
 
 type metricsAPI struct {
 	Router *chi.Mux
-	store  Storage
+	store  Repo
 }
 
-func New(s Storage) *metricsAPI {
+func New(s Repo) *metricsAPI {
 	api := &metricsAPI{
 		Router: chi.NewRouter(),
 		store:  s,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
@@ -23,14 +24,14 @@ type Repo struct {
 	DB            Storage
 }
 
-func New(s Storage) *Repo {
+func New(cfg *config.Config, s Storage) *Repo {
 	return &Repo{
 		DB: s,
 	}
 }
 
-func (r Repo) Ping() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (r Repo) Ping(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	return r.DB.Ping(ctx)
 }

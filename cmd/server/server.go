@@ -13,6 +13,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/db"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 )
 
@@ -34,28 +35,12 @@ func main() {
 		log.Println(dbErr)
 	}
 
-	storeCfg := file.Cfg{
-		StoreFile:     envCfg.StoreFile,
-		StoreInterval: envCfg.StoreInterval,
-		Restore:       envCfg.Restore,
-		Ctx:           ctx,
-		Finished:      finished, // to make sure we wrote the data while terminating
-		HashingKey:    []byte(envCfg.HashingKey),
-	}
-	// DB:            conn,
+	storage, storageCloser := initStorage(ctx, finished, envCfg)
+	defer storageCloser()
 
-	storage, closeFile, err := file.New(&storeCfg)
-	if err != nil {
-		log.Println("Can't init server store:", err)
-	}
-	defer func() {
-		if err := closeFile(); err != nil {
-			log.Println("failed closing file storage:", err)
-		}
-	}()
-	log.Printf("Server store created with config: %+v", envCfg)
+	repo := repo.New(envCfg, storage)
 
-	metricsAPI := api.New(storage)
+	metricsAPI := api.New(repo)
 	go metricsAPI.Run(envCfg.Address)
 	log.Printf("Serving at http://%s\n", envCfg.Address)
 
@@ -74,4 +59,26 @@ func main() {
 	<-finished
 	close(finished)
 	log.Println("Server has been successfully terminated. Bye!")
+}
+
+func initStorage(ctx context.Context, finished chan bool, envCfg *config.Config) (repo.Storage, func()) {
+	storeCfg := file.Cfg{
+		StoreFile:     envCfg.StoreFile,
+		StoreInterval: envCfg.StoreInterval,
+		Restore:       envCfg.Restore,
+		Ctx:           ctx,
+		Finished:      finished, // to make sure we wrote the data while terminating
+		HashingKey:    []byte(envCfg.HashingKey),
+	}
+
+	storage, closeFile, err := file.New(&storeCfg)
+	if err != nil {
+		log.Println("Can't init server store:", err)
+	}
+	closer := func() {
+		if err := closeFile(); err != nil {
+			log.Println("failed closing file storage:", err)
+		}
+	}
+	return storage, closer
 }
