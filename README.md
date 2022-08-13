@@ -1,5 +1,7 @@
 # go-musthave-devops-tpl
 
+testing 10
+
 Шаблон репозитория для практического трека «Go в DevOps».
 
 # Начало работы
