@@ -1,5 +1,7 @@
 # go-musthave-devops-tpl
 
+trigger test
+
 Шаблон репозитория для практического трека «Go в DevOps».
 
 # Начало работы
