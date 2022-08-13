@@ -8,6 +8,10 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
+type Storage struct {
+	DB *pgx.Conn
+}
+
 func Migrate(conn *pgx.Conn, schemaFile string) error {
 	schema, err := os.ReadFile(schemaFile)
 	if err != nil {
@@ -20,4 +24,8 @@ func Migrate(conn *pgx.Conn, schemaFile string) error {
 		log.Fatalln("failed creating DB schema:", err)
 	}
 	return nil
+}
+
+func (s Storage) Ping(ctx context.Context) error {
+	return s.DB.Ping(ctx)
 }

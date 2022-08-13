@@ -128,7 +128,7 @@ func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 	// Добавьте хендлер GET /ping, который при запросе проверяет соединение с базой данных.
 	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
 
-	err := api.store.Ping()
+	err := api.store.Ping(r.Context())
 
 	if err == nil {
 		rw.WriteHeader(http.StatusOK)

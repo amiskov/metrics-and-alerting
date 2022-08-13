@@ -13,7 +13,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/db"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 )
 
 func main() {
@@ -34,17 +34,17 @@ func main() {
 		log.Println(dbErr)
 	}
 
-	storeCfg := store.Cfg{
+	storeCfg := file.Cfg{
 		StoreFile:     envCfg.StoreFile,
 		StoreInterval: envCfg.StoreInterval,
 		Restore:       envCfg.Restore,
 		Ctx:           ctx,
 		Finished:      finished, // to make sure we wrote the data while terminating
 		HashingKey:    []byte(envCfg.HashingKey),
-		DB:            conn,
 	}
+	// DB:            conn,
 
-	storage, closeFile, err := store.New(&storeCfg)
+	storage, closeFile, err := file.New(&storeCfg)
 	if err != nil {
 		log.Println("Can't init server store:", err)
 	}

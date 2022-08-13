@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -81,7 +81,7 @@ func TestUpdateMetric(t *testing.T) {
 			finished := make(chan bool)
 			defer cancel()
 
-			storage, closeFile, err := store.New(&store.Cfg{
+			storage, closeFile, err := file.New(&file.Cfg{
 				Ctx:       ctx,
 				Finished:  finished,
 				StoreFile: "",
