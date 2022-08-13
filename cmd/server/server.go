@@ -2,13 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/jackc/pgx/v4"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
@@ -22,18 +18,6 @@ func main() {
 	finished := make(chan bool)
 
 	envCfg := config.Parse()
-
-	conn, err := pgx.Connect(ctx, envCfg.PgDSN)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer conn.Close(ctx)
-
-	// Always creates new `gauge` and `counter` PG types and `metrics` table.
-	if dbErr := db.Migrate(conn, "sql/schema.sql"); dbErr != nil {
-		log.Println(dbErr)
-	}
 
 	storage, storageCloser := initStorage(ctx, finished, envCfg)
 	defer storageCloser()
@@ -62,23 +46,40 @@ func main() {
 }
 
 func initStorage(ctx context.Context, finished chan bool, envCfg *config.Config) (repo.Storage, func()) {
-	storeCfg := file.Cfg{
-		StoreFile:     envCfg.StoreFile,
-		StoreInterval: envCfg.StoreInterval,
-		Restore:       envCfg.Restore,
-		Ctx:           ctx,
-		Finished:      finished, // to make sure we wrote the data while terminating
-		HashingKey:    []byte(envCfg.HashingKey),
+	if envCfg.PgDSN == "" {
+		storeCfg := file.Cfg{
+			StoreFile:     envCfg.StoreFile,
+			StoreInterval: envCfg.StoreInterval,
+			Restore:       envCfg.Restore,
+			Ctx:           ctx,
+			Finished:      finished, // to make sure we wrote the data while terminating
+			HashingKey:    []byte(envCfg.HashingKey),
+		}
+
+		storage, closeFile, err := file.New(&storeCfg)
+		if err != nil {
+			log.Println("Can't init server store:", err)
+		}
+		closer := func() {
+			if err := closeFile(); err != nil {
+				log.Println("failed closing file storage:", err)
+			}
+		}
+
+		log.Println("File is used for storing metrics.")
+
+		return storage, closer
 	}
 
-	storage, closeFile, err := file.New(&storeCfg)
-	if err != nil {
-		log.Println("Can't init server store:", err)
+	db, closer := db.New(ctx, envCfg)
+	defer closer()
+
+	// Always creates new `gauge` and `counter` PG types and `metrics` table.
+	if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
+		log.Println(dbErr)
 	}
-	closer := func() {
-		if err := closeFile(); err != nil {
-			log.Println("failed closing file storage:", err)
-		}
-	}
-	return storage, closer
+
+	log.Println("PostgresDB is used for storing metrics.")
+
+	return db, closer
 }
