@@ -58,9 +58,9 @@ func (s *store) Dump(inmemDB models.InmemDB) error {
 	      value = excluded.value, delta = excluded.delta, hash = excluded.hash;`
 
 	for _, m := range inmemDB.GetAll() {
-		ct, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta, m.Hash)
+		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta, m.Hash)
 		if err != nil {
-			log.Printf("failed dumping metric `%#v`. CommantTag: `%#v`, err: `%#v`.\n", m, string(ct), err)
+			log.Printf("failed dumping metric `%#v`. Err: `%#v`.\n", m, err)
 			return err
 		}
 	}

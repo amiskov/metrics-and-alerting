@@ -76,34 +76,31 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	urlVal := chi.URLParam(r, "metricValue")
 	mType := chi.URLParam(r, "metricType")
 
-	var val float64
-	var delta int64
-	var err error
-
-	switch mType {
-	case models.MCounter:
-		delta, err = strconv.ParseInt(urlVal, 10, 64)
-		if err != nil {
-			log.Println(err.Error())
-			rw.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	case models.MGauge:
-		val, err = strconv.ParseFloat(urlVal, 64)
-		if err != nil {
-			log.Println(err.Error())
-			rw.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
 	metricData := models.Metrics{
 		MType: mType,
 		ID:    chi.URLParam(r, "metricName"),
-		Value: &val,
-		Delta: &delta,
 	}
 
-	err = api.repo.Update(metricData)
+	switch mType {
+	case models.MCounter:
+		delta, err := strconv.ParseInt(urlVal, 10, 64)
+		if err != nil {
+			log.Println(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		metricData.Delta = &delta
+	case models.MGauge:
+		val, err := strconv.ParseFloat(urlVal, 64)
+		if err != nil {
+			log.Println(err.Error())
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		metricData.Value = &val
+	}
+
+	err := api.repo.Update(metricData)
 	switch {
 	case errors.Is(err, models.ErrorBadMetricFormat):
 		rw.WriteHeader(http.StatusBadRequest)
