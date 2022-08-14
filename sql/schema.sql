@@ -8,8 +8,6 @@ CREATE TABLE metrics (
   name VARCHAR(128) UNIQUE NOT NULL,
   value DOUBLE PRECISION,
   delta BIGINT,
-  hash VARCHAR(128),
   -- make sure we store only 1 number (add more fields if necessary)
-  CHECK ((value IS NOT NULL)::INTEGER + (delta IS NOT NULL)::INTEGER = 1),
-  UNIQUE (type, name, hash)
+  CHECK ((value IS NOT NULL)::INTEGER + (delta IS NOT NULL)::INTEGER = 1)
 );

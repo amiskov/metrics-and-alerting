@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 )
@@ -96,5 +97,21 @@ func (mdb *InmemDB) Upsert(m Metrics) error {
 
 	mdb.data[m.MType+m.ID] = m
 
+	return nil
+}
+
+func (mdb *InmemDB) ActualizeHashes(key []byte) error {
+	mdb.mx.Lock()
+	defer mdb.mx.Unlock()
+
+	for k, m := range mdb.data {
+		hash, err := m.GetHash(key)
+		if err != nil {
+			log.Println("can't actualize hash", err)
+			return err
+		}
+		m.Hash = hash
+		mdb.data[k] = m
+	}
 	return nil
 }

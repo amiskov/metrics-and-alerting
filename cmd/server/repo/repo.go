@@ -49,6 +49,14 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 		if err != nil {
 			log.Println("can't restore data from storage:", err)
 		}
+
+		// create hashes for running server with current hashing key
+		if len(repo.hashingKey) != 0 {
+			err := repo.inmemDB.ActualizeHashes(repo.hashingKey)
+			if err != nil {
+				log.Println("can't update hashes", err)
+			}
+		}
 	}
 
 	repo.SavePeriodically()
@@ -111,9 +119,12 @@ func (r *Repo) Update(m models.Metrics) error {
 		return models.ErrorUnknownMetricType
 	}
 
+	shouldHandleHash := len(r.hashingKey) != 0
+
 	// Check metric hash
-	if m.Hash != "" && len(r.hashingKey) != 0 {
+	if shouldHandleHash {
 		if err := r.checkHash(m); err != nil {
+			log.Println("bad hash", err)
 			return err
 		}
 	}
@@ -124,7 +135,7 @@ func (r *Repo) Update(m models.Metrics) error {
 		currentDelta := *existingMetric.Delta
 		*m.Delta += currentDelta
 
-		if m.Hash != "" {
+		if shouldHandleHash {
 			var err error
 			m.Hash, err = m.GetHash(r.hashingKey)
 			if err != nil {

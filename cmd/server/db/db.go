@@ -53,12 +53,12 @@ func (s store) Ping(ctx context.Context) error {
 }
 
 func (s *store) Dump(inmemDB models.InmemDB) error {
-	q := `INSERT INTO metrics (type, name, value, delta, hash)
-			  VALUES ($1, $2, $3, $4, $5) ON CONFLICT (name) DO UPDATE SET
-	      value = excluded.value, delta = excluded.delta, hash = excluded.hash;`
+	q := `INSERT INTO metrics (type, name, value, delta)
+			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
+	      value = excluded.value, delta = excluded.delta;`
 
 	for _, m := range inmemDB.GetAll() {
-		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta, m.Hash)
+		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
 		if err != nil {
 			log.Printf("failed dumping metric `%#v`. Err: `%#v`.\n", m, err)
 			return err
@@ -88,7 +88,7 @@ func (s *store) Restore(inmemDB models.InmemDB) error {
 func (s *store) getMetrics() ([]models.Metrics, error) {
 	metrics := make([]models.Metrics, 0, 10)
 
-	rows, err := s.DB.Query(context.Background(), "select type, name, value, delta, hash from metrics")
+	rows, err := s.DB.Query(context.Background(), "select type, name, value, delta from metrics")
 	if err != nil {
 		return metrics, err
 	}
@@ -96,7 +96,7 @@ func (s *store) getMetrics() ([]models.Metrics, error) {
 
 	for rows.Next() {
 		m := new(models.Metrics)
-		err := rows.Scan(&m.MType, &m.ID, &m.Value, &m.Delta, &m.Hash)
+		err := rows.Scan(&m.MType, &m.ID, &m.Value, &m.Delta)
 		if err != nil {
 			return nil, err
 		}
