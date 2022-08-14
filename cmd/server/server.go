@@ -63,11 +63,14 @@ func initStorage(ctx context.Context, envCfg *config.Config) (repo.Storage, func
 	}
 
 	db, closer := db.New(ctx, envCfg)
-	defer closer()
 
-	// Always creates new `gauge` and `counter` PG types and `metrics` table.
-	if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
-		log.Println(dbErr)
+	// Check if table with columns exist. If not, run the migration.
+	_, err := db.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
+	if err != nil {
+		// Always creates new `gauge` and `counter` PG types and `metrics` table.
+		if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
+			log.Println(dbErr)
+		}
 	}
 
 	log.Println("PostgresDB is used for storing metrics.")

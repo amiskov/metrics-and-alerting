@@ -40,7 +40,6 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("!!!Trying to find: %#v\n", reqMetric)
 	foundMetric, err := api.repo.Get(reqMetric.MType, reqMetric.ID)
 	if err != nil {
 		log.Printf("Metric not found. Body: %s. Error: %s.", body, err.Error())
