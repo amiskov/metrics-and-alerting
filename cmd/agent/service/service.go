@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
@@ -93,16 +94,22 @@ func (s *service) updateMetrics() {
 func (s *service) updateCounter(id string) {
 	m, err := s.metrics.Get(models.MCounter, id)
 	if errors.Is(err, models.ErrorMetricNotFound) {
-		zero := int64(0)
+		var zero int64
 		m = models.Metrics{
 			ID:    id,
 			MType: models.MCounter,
 			Delta: &zero,
 		}
+		fmt.Printf("First update! %v, %d\n", m, *m.Delta)
 	}
 
+	log.Printf("m.before +1: %s:%d, %s.\n", m.ID, *m.Delta, m.Hash)
+
 	// if metric exists, increment its Delta
-	*m.Delta++
+	delta := *m.Delta + 1
+	m.Delta = &delta
+
+	log.Printf("m.before hash: %s:%d.\n", m.ID, *m.Delta)
 
 	// refresh metric hash if key available
 	if len(s.hashingKey) != 0 {
@@ -112,6 +119,8 @@ func (s *service) updateCounter(id string) {
 		}
 		m.Hash = hash
 	}
+
+	log.Printf("m.after hash: %s:%d, %s.\n", m.ID, *m.Delta, m.Hash)
 
 	// add/replace metric in storage
 	updErr := s.metrics.Upsert(m)
