@@ -6,26 +6,26 @@ import (
 	"log"
 	"os"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type store struct {
-	DB  *pgx.Conn
+	DB  *pgxpool.Pool
 	Ctx context.Context
 }
 
 func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
-	conn, err := pgx.Connect(ctx, envCfg.PgDSN)
+	conn, err := pgxpool.Connect(ctx, envCfg.PgDSN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
 	}
 
 	closer := func() {
-		conn.Close(ctx)
+		conn.Close()
 	}
 
 	return &store{
@@ -52,7 +52,8 @@ func (s store) Ping(ctx context.Context) error {
 	return s.DB.Ping(ctx)
 }
 
-func (s *store) Dump(inmemDB models.InmemDB) error {
+func (s *store) Dump(ctx context.Context, inmemDB models.InmemDB) error {
+	log.Println("Dumping to Postgres...")
 	q := `INSERT INTO metrics (type, name, value, delta)
 			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
 	      value = excluded.value, delta = excluded.delta;`

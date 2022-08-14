@@ -69,7 +69,7 @@ func (fs *fileStorage) Restore(inmemDB models.InmemDB) error {
 	return err
 }
 
-func (fs *fileStorage) Dump(inmemDB models.InmemDB) error {
+func (fs *fileStorage) Dump(ctx context.Context, inmemDB models.InmemDB) error {
 	if _, err := fs.file.Stat(); err != nil {
 		log.Println("Can't save to file:", err)
 		return err

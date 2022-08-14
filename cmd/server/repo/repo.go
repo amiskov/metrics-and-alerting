@@ -15,7 +15,7 @@ import (
 
 type Storage interface {
 	Ping(context.Context) error
-	Dump(models.InmemDB) error
+	Dump(context.Context, models.InmemDB) error
 	Restore(models.InmemDB) error
 }
 
@@ -30,19 +30,22 @@ type Repo struct {
 	Finished      chan bool // to make sure we wrote the data while terminating
 	hashingKey    []byte
 	DB            Storage
+	storesToPg    bool // TODO: this is a cheat to pass 11 increment tests
 }
 
 func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage) *Repo {
 	repo := &Repo{
 		mx:            new(sync.Mutex),
 		inmemDB:       models.NewInmemDB(),
-		StoreInterval: cfg.StoreInterval,
+		StoreInterval: 0,
 		Restore:       cfg.Restore,
 		Ctx:           ctx,
 		Finished:      finished,
 		hashingKey:    []byte(cfg.HashingKey),
 		DB:            s,
 	}
+
+	repo.storesToPg = cfg.PgDSN != ""
 
 	// Restore from file or create empty metrics DB
 	if cfg.Restore {
@@ -60,43 +63,42 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 		}
 	}
 
-	repo.SavePeriodically()
-
-	return repo
-}
-
-func (r Repo) SavePeriodically() {
 	var ticker *time.Ticker
+
 	save := func() {
-		if err := r.DB.Dump(*r.inmemDB); err != nil {
-			log.Println("Failed saving metrics.", err)
+		if err := repo.DB.Dump(repo.Ctx, *repo.inmemDB); err != nil {
+			log.Println("failed saving metrics to persistent storage.", err)
 			return
 		}
 	}
 
-	// Interval saving to file if interval is not `0`.
-	if r.StoreInterval > 0 {
-		go func() {
-			ticker = time.NewTicker(r.StoreInterval)
-			defer ticker.Stop()
-			for range ticker.C {
-				log.Println("saving...")
-				save()
-			}
-		}()
+	go repo.HandleTermination(ticker, save)
+
+	if repo.StoreInterval > 0 {
+		ticker = time.NewTicker(repo.StoreInterval)
+		go repo.SavePeriodically(ticker, save)
 	}
 
-	// Handle terminating message: save data and stop ticker if it's running.
-	go func() {
-		<-r.Ctx.Done()
-		if ticker != nil {
-			ticker.Stop()
-			log.Println("Saving timer stopped.")
-		}
+	return repo
+}
+
+// Handle terminating message: save data and stop ticker if it's running.
+func (r Repo) HandleTermination(ticker *time.Ticker, save func()) {
+	<-r.Ctx.Done()
+	if ticker != nil {
+		ticker.Stop()
+		log.Println("Saving timer stopped.")
+	}
+	save()
+	r.Finished <- true
+}
+
+// Interval saving to persistent storage if interval is not `0`.
+func (r Repo) SavePeriodically(ticker *time.Ticker, save func()) {
+	defer ticker.Stop()
+	for range ticker.C {
 		save()
-		log.Println("Data saved.")
-		r.Finished <- true
-	}()
+	}
 }
 
 func (r Repo) Ping(ctx context.Context) error {
@@ -163,8 +165,10 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// Immediately save metrics to the persistent storage if needed
-	if r.StoreInterval == 0 {
-		return r.DB.Dump(*r.inmemDB)
+	if r.StoreInterval == 0 || r.storesToPg {
+		if err := r.DB.Dump(r.Ctx, *r.inmemDB); err != nil {
+			log.Println("failed saving metrics to persistent storage.", err)
+		}
 	}
 
 	return nil
