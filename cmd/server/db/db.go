@@ -60,8 +60,7 @@ func (s *store) Dump(inmemDB models.InmemDB) error {
 	for _, m := range inmemDB.GetAll() {
 		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
 		if err != nil {
-			log.Printf("failed dumping metric `%#v`. Err: `%#v`.\n", m, err)
-			return err
+			return fmt.Errorf("failed dumping metric `%#v`. %w", m, err)
 		}
 	}
 	log.Println("Metrics dumped into PostgreSQL.")
