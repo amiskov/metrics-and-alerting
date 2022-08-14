@@ -27,7 +27,7 @@ type Repo struct {
 	Restore       bool          // restore from persistent storage on start if `true`
 	Ctx           context.Context
 	Finished      chan bool // to make sure we wrote the data while terminating
-	HashingKey    []byte
+	hashingKey    []byte
 	DB            Storage
 }
 
@@ -39,7 +39,7 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 		Restore:       cfg.Restore,
 		Ctx:           ctx,
 		Finished:      finished,
-		HashingKey:    []byte(cfg.HashingKey),
+		hashingKey:    []byte(cfg.HashingKey),
 		DB:            s,
 	}
 
@@ -112,7 +112,7 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// Check metric hash
-	if m.Hash != "" {
+	if m.Hash != "" && len(r.hashingKey) != 0 {
 		if err := r.checkHash(m); err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (r *Repo) Update(m models.Metrics) error {
 
 		if m.Hash != "" {
 			var err error
-			m.Hash, err = m.GetHash(r.HashingKey)
+			m.Hash, err = m.GetHash(r.hashingKey)
 			if err != nil {
 				log.Println("failed updating hash", err)
 				return err
@@ -159,7 +159,7 @@ func (r *Repo) checkHash(m models.Metrics) error {
 		return models.ErrorBadMetricFormat
 	}
 
-	serverHash, err := m.GetHash(r.HashingKey)
+	serverHash, err := m.GetHash(r.hashingKey)
 	if err != nil {
 		log.Println("failed creating server hash", err)
 		return models.ErrorBadMetricFormat

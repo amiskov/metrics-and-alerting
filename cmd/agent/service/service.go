@@ -105,7 +105,7 @@ func (s *service) updateCounter(id string) {
 	*m.Delta++
 
 	// refresh metric hash if key available
-	if s.hashingKey != nil {
+	if len(s.hashingKey) != 0 {
 		hash, err := m.GetHash(s.hashingKey)
 		if err != nil {
 			log.Printf("failed creating hash for %s: %v", id, err)
