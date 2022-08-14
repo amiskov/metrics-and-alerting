@@ -123,6 +123,15 @@ func (r *Repo) Update(m models.Metrics) error {
 	if getErr == nil && m.MType == models.MCounter {
 		currentDelta := *existingMetric.Delta
 		*m.Delta += currentDelta
+
+		if m.Hash != "" {
+			var err error
+			m.Hash, err = m.GetHash(r.HashingKey)
+			if err != nil {
+				log.Println("failed updating hash", err)
+				return err
+			}
+		}
 	}
 
 	// add/replace the metric
