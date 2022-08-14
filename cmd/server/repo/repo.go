@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"encoding/hex"
 	"log"
-	"sort"
 	"sync"
 	"time"
 
@@ -15,18 +14,15 @@ import (
 
 type Storage interface {
 	Ping(context.Context) error
-	Dump(models.MetricsDB) error
-	Restore(models.MetricsDB) error
+	Dump(models.InmemDB) error
+	Restore(models.InmemDB) error
 }
 
 // Repo keeps metrics inmemory, dumps metrics to persistent `Storage` intervally,
 // and preloads metrics from `Storage` if `Restore` is `true`.
 type Repo struct {
-	mx *sync.Mutex
-
-	// TODO: Update, Get and other methods could be handled as methods of the MetricsDB itself.
-	inmemDB models.MetricsDB
-
+	mx            *sync.Mutex
+	inmemDB       *models.InmemDB
 	StoreInterval time.Duration // store immediately if `0`
 	Restore       bool          // restore from persistent storage on start if `true`
 	Ctx           context.Context
@@ -38,7 +34,7 @@ type Repo struct {
 func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage) *Repo {
 	repo := &Repo{
 		mx:            new(sync.Mutex),
-		inmemDB:       make(models.MetricsDB),
+		inmemDB:       models.NewInmemDB(),
 		StoreInterval: cfg.StoreInterval,
 		Restore:       cfg.Restore,
 		Ctx:           ctx,
@@ -49,7 +45,7 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 
 	// Restore from file or create empty metrics DB
 	if cfg.Restore {
-		err := repo.DB.Restore(repo.inmemDB)
+		err := repo.DB.Restore(*repo.inmemDB)
 		if err != nil {
 			log.Println("can't restore data from storage:", err)
 		}
@@ -63,7 +59,7 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 func (r Repo) SavePeriodically() {
 	var ticker *time.Ticker
 	save := func() {
-		if err := r.DB.Dump(r.inmemDB); err != nil {
+		if err := r.DB.Dump(*r.inmemDB); err != nil {
 			log.Println("Failed saving metrics.", err)
 			return
 		}
@@ -101,69 +97,12 @@ func (r Repo) Ping(ctx context.Context) error {
 }
 
 func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) {
-	// Handle wrong metric type
-	if metricType != models.MCounter && metricType != models.MGauge {
-		return models.Metrics{}, models.ErrorMetricNotFound
-	}
-
-	r.mx.Lock()
-	metric, ok := r.inmemDB[metricName]
-	r.mx.Unlock()
-
-	if !ok {
-		return metric, models.ErrorMetricNotFound
-	}
-
-	return metric, nil
+	return r.inmemDB.Get(metricType, metricName)
 }
 
 // Get all metrics from inmemory storage
 func (r Repo) GetAll() []models.Metrics {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	metrics := []models.Metrics{}
-	for _, m := range r.inmemDB {
-		metrics = append(metrics, m)
-	}
-
-	sort.Slice(metrics, func(i, j int) bool {
-		return metrics[i].ID < metrics[j].ID
-	})
-
-	return metrics
-}
-
-// Updates the inmem values.
-func (r *Repo) update(m models.Metrics) error {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	// Metric not exists on the server
-	if _, ok := r.inmemDB[m.ID]; !ok {
-		r.inmemDB[m.ID] = m
-		return nil
-	}
-
-	updatedMetric := m
-
-	// Update existing counter metric
-	if m.MType == models.MCounter {
-		delta := *r.inmemDB[m.ID].Delta + *m.Delta
-		updatedMetric.Delta = &delta
-
-		if m.Hash != "" {
-			newHash, err := updatedMetric.GetHash(r.HashingKey)
-			if err != nil {
-				return err
-			}
-			updatedMetric.Hash = newHash
-		}
-	}
-
-	r.inmemDB[m.ID] = updatedMetric
-
-	return nil
+	return r.inmemDB.GetAll()
 }
 
 func (r *Repo) Update(m models.Metrics) error {
@@ -179,14 +118,22 @@ func (r *Repo) Update(m models.Metrics) error {
 		}
 	}
 
-	err := r.update(m) // inmemory update
+	// For `counter` metrics, update the Delta if metric already exists
+	existingMetric, getErr := r.inmemDB.Get(m.MType, m.ID)
+	if getErr == nil && m.MType == models.MCounter {
+		currentDelta := *existingMetric.Delta
+		*m.Delta += currentDelta
+	}
+
+	// add/replace the metric
+	err := r.inmemDB.Upsert(m)
 	if err != nil {
 		return err
 	}
 
-	// Immediately save metrics to the persistent storage.
+	// Immediately save metrics to the persistent storage if needed
 	if r.StoreInterval == 0 {
-		return r.DB.Dump(r.inmemDB)
+		return r.DB.Dump(*r.inmemDB)
 	}
 
 	return nil

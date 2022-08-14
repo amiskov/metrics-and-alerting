@@ -36,6 +36,7 @@ func sendMetricJSON(sendURL string, m models.Metrics) {
 	jbz, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("Error marshaling JSON: %+v", err)
+		return
 	}
 
 	resp, errPost := client.Post(postURL, contentType, bytes.NewBuffer(jbz))

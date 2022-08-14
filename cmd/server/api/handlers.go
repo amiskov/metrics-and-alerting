@@ -39,7 +39,7 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 		struct {
 			Metrics []models.Metrics
 		}{
-			Metrics: api.store.GetAll(),
+			Metrics: api.repo.GetAll(),
 		})
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -51,7 +51,7 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	metricValue, err := api.store.Get(metricType, metricName)
+	metricValue, err := api.repo.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
 		writeBody(rw, []byte(err.Error()))
@@ -75,9 +75,11 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 
 	urlVal := chi.URLParam(r, "metricValue")
 	mType := chi.URLParam(r, "metricType")
+
 	var val float64
 	var delta int64
 	var err error
+
 	switch mType {
 	case models.MCounter:
 		delta, err = strconv.ParseInt(urlVal, 10, 64)
@@ -101,7 +103,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 		Delta: &delta,
 	}
 
-	err = api.store.Update(metricData)
+	err = api.repo.Update(metricData)
 	switch {
 	case errors.Is(err, models.ErrorBadMetricFormat):
 		rw.WriteHeader(http.StatusBadRequest)
@@ -120,6 +122,8 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotFound)
+	log.Printf("not found")
+	writeBody(rw, []byte("not found"))
 }
 
 func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
@@ -128,7 +132,7 @@ func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 	// Добавьте хендлер GET /ping, который при запросе проверяет соединение с базой данных.
 	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
 
-	err := api.store.Ping(r.Context())
+	err := api.repo.Ping(r.Context())
 
 	if err == nil {
 		rw.WriteHeader(http.StatusOK)
@@ -143,6 +147,8 @@ func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
+	log.Printf("not implemented")
+	writeBody(rw, []byte("not implemented"))
 }
 
 func writeBody(rw http.ResponseWriter, body []byte) {

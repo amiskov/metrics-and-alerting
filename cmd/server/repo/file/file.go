@@ -45,8 +45,8 @@ func (fs *fileStorage) addFileStorage(name string) (func() error, error) {
 }
 
 // Decodes JSON from the file and writes it to the given `MetricsDB`.
-func (fs *fileStorage) Restore(inmemDB models.MetricsDB) error {
-	storedMetrics := models.MetricsDB{}
+func (fs *fileStorage) Restore(inmemDB models.InmemDB) error {
+	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
 	err := dec.Decode(&storedMetrics)
 
@@ -57,7 +57,10 @@ func (fs *fileStorage) Restore(inmemDB models.MetricsDB) error {
 
 	if errors.Is(err, nil) {
 		for _, m := range storedMetrics {
-			inmemDB[m.ID] = m
+			updErr := inmemDB.Upsert(m)
+			if updErr != nil {
+				return updErr
+			}
 		}
 		log.Printf("Metrics data restored from %s", fs.file.Name())
 		return nil
@@ -66,7 +69,7 @@ func (fs *fileStorage) Restore(inmemDB models.MetricsDB) error {
 	return err
 }
 
-func (fs *fileStorage) Dump(inmemDB models.MetricsDB) error {
+func (fs *fileStorage) Dump(inmemDB models.InmemDB) error {
 	if _, err := fs.file.Stat(); err != nil {
 		log.Println("Can't save to file:", err)
 		return err
@@ -82,7 +85,7 @@ func (fs *fileStorage) Dump(inmemDB models.MetricsDB) error {
 		return err
 	}
 
-	if err := json.NewEncoder(fs.file).Encode(inmemDB); err != nil {
+	if err := json.NewEncoder(fs.file).Encode(inmemDB.GetAll()); err != nil {
 		log.Printf("Can't store to file `%s`: %s.\n", fs.file.Name(), err)
 		return err
 	}

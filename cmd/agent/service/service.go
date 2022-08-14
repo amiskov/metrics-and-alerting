@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math/rand"
 	"runtime"
@@ -14,7 +15,7 @@ import (
 type service struct {
 	mx         *sync.RWMutex
 	memStats   *runtime.MemStats
-	metrics    models.MetricsDB
+	metrics    *models.InmemDB
 	hashingKey []byte
 }
 
@@ -22,7 +23,7 @@ func New(key []byte) *service {
 	return &service{
 		mx:         new(sync.RWMutex),
 		memStats:   new(runtime.MemStats),
-		metrics:    make(models.MetricsDB),
+		metrics:    models.NewInmemDB(),
 		hashingKey: key,
 	}
 }
@@ -45,12 +46,7 @@ func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Dur
 func (s *service) GetMetrics() []models.Metrics {
 	s.mx.Lock()
 	defer s.mx.Unlock()
-
-	metrics := []models.Metrics{}
-	for _, m := range s.metrics {
-		metrics = append(metrics, m)
-	}
-	return metrics
+	return s.metrics.GetAll()
 }
 
 func (s *service) updateMetrics() {
@@ -95,11 +91,8 @@ func (s *service) updateMetrics() {
 }
 
 func (s *service) updateCounter(id string) {
-	var m models.Metrics
-
-	if _, ok := s.metrics[id]; ok {
-		m = s.metrics[id]
-	} else {
+	m, err := s.metrics.Get(models.MCounter, id)
+	if errors.Is(err, models.ErrorMetricNotFound) {
 		zero := int64(0)
 		m = models.Metrics{
 			ID:    id,
@@ -108,19 +101,27 @@ func (s *service) updateCounter(id string) {
 		}
 	}
 
+	// if metric exists, increment its Delta
 	*m.Delta++
 
-	hash, err := m.GetHash(s.hashingKey)
-	if err != nil {
-		log.Printf("failed creating hash for %s: %v", id, err)
+	// refresh metric hash if key available
+	if s.hashingKey != nil {
+		hash, err := m.GetHash(s.hashingKey)
+		if err != nil {
+			log.Printf("failed creating hash for %s: %v", id, err)
+		}
+		m.Hash = hash
 	}
-	m.Hash = hash
 
-	s.metrics[id] = m
+	// add/replace metric in storage
+	updErr := s.metrics.Upsert(m)
+	if updErr != nil {
+		log.Printf("can't update %+v\n", m)
+	}
 }
 
 func (s *service) updateGauge(id string, val float64) {
-	m := &models.Metrics{
+	m := models.Metrics{
 		ID:    id,
 		MType: models.MGauge,
 		Value: &val,
@@ -132,5 +133,8 @@ func (s *service) updateGauge(id string, val float64) {
 		log.Printf("failed creating hash for %s: %v", id, hashingErr)
 	}
 
-	s.metrics[id] = *m
+	updErr := s.metrics.Upsert(m)
+	if updErr != nil {
+		log.Printf("can't update %+v\n", m)
+	}
 }

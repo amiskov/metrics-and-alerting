@@ -20,13 +20,13 @@ type Repo interface {
 
 type metricsAPI struct {
 	Router *chi.Mux
-	store  Repo
+	repo   Repo
 }
 
 func New(s Repo) *metricsAPI {
 	api := &metricsAPI{
 		Router: chi.NewRouter(),
-		store:  s,
+		repo:   s,
 	}
 	api.mountHandlers()
 	return api

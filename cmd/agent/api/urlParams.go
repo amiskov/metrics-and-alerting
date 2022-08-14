@@ -38,12 +38,13 @@ func (a *api) sendMetrics() {
 
 func sendMetric(sendURL string, mType string, mName string, mValue string) {
 	postURL := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
+	log.Println("Sending to:", postURL)
 	contentType := "Content-Type: text/plain"
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
 	resp, errPost := client.Post(postURL, contentType, nil)
 	if errPost != nil {
-		log.Println(errPost)
+		log.Printf("Failed to send metric. URL: `%s`. Error: %v\n", postURL, errPost)
 		return
 	}
 	defer resp.Body.Close()

@@ -4,6 +4,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
+	"sort"
+	"sync"
 )
 
 const (
@@ -42,5 +44,57 @@ func (m Metrics) GetHash(key []byte) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// TODO: Metrics should be `*Metrics`, fix it for agent and server
-type MetricsDB map[string]Metrics
+type InmemDB struct {
+	mx   *sync.Mutex
+	data map[string]Metrics // string is `type+name`
+}
+
+func NewInmemDB() *InmemDB {
+	return &InmemDB{
+		mx:   new(sync.Mutex),
+		data: make(map[string]Metrics),
+	}
+}
+
+func (mdb InmemDB) Get(metricType string, metricName string) (Metrics, error) {
+	// Handle wrong metric type
+	if metricType != MCounter && metricType != MGauge {
+		return Metrics{}, ErrorMetricNotFound
+	}
+
+	mdb.mx.Lock()
+	metric, ok := mdb.data[metricType+metricName]
+	mdb.mx.Unlock()
+
+	if !ok {
+		return metric, ErrorMetricNotFound
+	}
+
+	return metric, nil
+}
+
+// Get all metrics from inmemory storage
+func (mdb InmemDB) GetAll() []Metrics {
+	mdb.mx.Lock()
+	defer mdb.mx.Unlock()
+
+	metrics := []Metrics{}
+	for _, m := range mdb.data {
+		metrics = append(metrics, m)
+	}
+
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
+	})
+
+	return metrics
+}
+
+func (mdb *InmemDB) Upsert(m Metrics) error {
+	mdb.mx.Lock()
+	defer mdb.mx.Unlock()
+
+	mdb.data[m.MType+m.ID] = m
+
+	return nil
+}

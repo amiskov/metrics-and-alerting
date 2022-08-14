@@ -12,7 +12,7 @@ import (
 )
 
 func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Request) {
-	jbz, err := json.Marshal(api.store.GetAll())
+	jbz, err := json.Marshal(api.repo.GetAll())
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		log.Println("Error while parsing all metrics JSON.")
@@ -40,7 +40,8 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foundMetric, err := api.store.Get(reqMetric.MType, reqMetric.ID)
+	log.Printf("!!!Trying to find: %#v\n", reqMetric)
+	foundMetric, err := api.repo.Get(reqMetric.MType, reqMetric.ID)
 	if err != nil {
 		log.Printf("Metric not found. Body: %s. Error: %s.", body, err.Error())
 		rw.WriteHeader(http.StatusNotFound)
@@ -78,7 +79,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := api.store.Update(metricData)
+	err := api.repo.Update(metricData)
 	switch {
 	case errors.Is(err, models.ErrorBadMetricFormat):
 		http.Error(rw, err.Error(), http.StatusBadRequest)

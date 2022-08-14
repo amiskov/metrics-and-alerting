@@ -52,10 +52,10 @@ func (s store) Ping(ctx context.Context) error {
 	return s.DB.Ping(ctx)
 }
 
-func (s *store) Dump(inmemDB models.MetricsDB) error {
+func (s *store) Dump(inmemDB models.InmemDB) error {
 	return nil
 }
 
-func (s *store) Restore(inmemDB models.MetricsDB) error {
+func (s *store) Restore(inmemDB models.InmemDB) error {
 	return nil
 }
