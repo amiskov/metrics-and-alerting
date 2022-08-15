@@ -10,44 +10,48 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-type storer interface {
-	Restore() ([]models.Metrics, error)
-	Dump(context.Context, []models.Metrics) error
-}
+type (
+	// `worker` is responsible for interval saving and graceful termination.
+	// It intervally dumps data from `source` to `storage` with `ticker`.
+	worker struct {
+		ctx        context.Context
+		terminated chan bool
+		ticker     time.Ticker
+		source     sourcer
+		storage    storer
+	}
 
-type sourcer interface {
-	BatchUpsert([]models.Metrics) error
-	GetAll() []models.Metrics
-}
+	// Source of data to dump and destination to restore
+	sourcer interface {
+		BatchUpsert([]models.Metrics) error
+		GetAll() []models.Metrics
+	}
 
-type worker struct {
-	Ctx        context.Context
-	Finished   chan bool
-	ticker     time.Ticker
-	storage    sourcer
-	dumper     storer
-	hashingKey []byte
-}
+	// Persistent storage
+	storer interface {
+		Restore() ([]models.Metrics, error)
+		Dump(context.Context, []models.Metrics) error
+	}
+)
 
-func New(ctx context.Context, finished chan bool, storage sourcer, dumper storer, cfg *config.Config) *worker {
-	id := &worker{
-		Ctx:        ctx,
-		Finished:   finished,
+func New(ctx context.Context, terminated chan bool, source sourcer, storage storer, cfg *config.Config) *worker {
+	w := &worker{
+		ctx:        ctx,
+		terminated: terminated,
 		ticker:     *time.NewTicker(cfg.StoreInterval),
+		source:     source,
 		storage:    storage,
-		dumper:     dumper,
-		hashingKey: []byte(cfg.HashingKey),
 	}
 
 	// Restore metrics from persistent storage or create an empty inmemory DB
 	if cfg.Restore {
-		err := id.Restore()
+		err := w.Restore()
 		if err != nil {
 			log.Println("can't restore metrics from file", cfg.StoreFile)
 		}
 	}
 
-	return id
+	return w
 }
 
 func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
@@ -64,16 +68,16 @@ func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 		go w.DumpPeriodically()
 	}
 
-	go w.HandleTermination() // ctx, finished
+	go w.HandleTermination()
 }
 
 func (w worker) Restore() error {
-	restoredMetrics, err := w.dumper.Restore()
+	restoredMetrics, err := w.storage.Restore()
 	if err != nil {
 		return fmt.Errorf("can't restore data from storage: %w", err)
 	}
 
-	errR := w.storage.BatchUpsert(restoredMetrics)
+	errR := w.source.BatchUpsert(restoredMetrics)
 	if errR != nil {
 		return fmt.Errorf("can't restore data from storage: %w", err)
 	}
@@ -85,7 +89,7 @@ func (w worker) Restore() error {
 func (w worker) DumpPeriodically() {
 	defer w.ticker.Stop()
 	for range w.ticker.C {
-		if err := w.dumper.Dump(w.Ctx, w.storage.GetAll()); err != nil {
+		if err := w.storage.Dump(w.ctx, w.source.GetAll()); err != nil {
 			log.Println("interval saving to persistent storage failed:", err)
 		}
 		log.Println("dumped into file")
@@ -94,11 +98,11 @@ func (w worker) DumpPeriodically() {
 
 // Handle program termination: save data and stop ticker if it's running.
 func (w worker) HandleTermination() {
-	<-w.Ctx.Done()
+	<-w.ctx.Done()
 	w.ticker.Stop()
 	log.Println("Saving timer stopped.")
-	if err := w.dumper.Dump(w.Ctx, w.storage.GetAll()); err != nil {
+	if err := w.storage.Dump(w.ctx, w.source.GetAll()); err != nil {
 		log.Println("failed saving to persistent storage:", err)
 	}
-	w.Finished <- true
+	w.terminated <- true
 }

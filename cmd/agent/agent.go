@@ -38,10 +38,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	updater := service.New([]byte(cfg.HashingKey))
-	finished := make(chan bool, 1) // buffer of 2 for updater and reporter
-	go updater.Run(ctx, finished, cfg.PollInterval)
+	terminated := make(chan bool, 1) // buffer of 2 for updater and reporter
+	go updater.Run(ctx, terminated, cfg.PollInterval)
 
-	reporter := api.New(ctx, updater, finished, cfg.ReportInterval, cfg.Address)
+	reporter := api.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address)
 	// go reporter.ReportWithURLParams()
 	go reporter.ReportWithJSON()
 
@@ -61,9 +61,9 @@ func main() {
 	cancel() // stop processes
 	stopBySyscall()
 
-	<-finished
-	<-finished
-	close(finished)
+	<-terminated
+	<-terminated
+	close(terminated)
 
 	log.Println("Agent has been terminated. Bye!")
 }

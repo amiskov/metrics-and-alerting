@@ -19,10 +19,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	envCfg := config.Parse()
 
-	// TODO: move to the case with inmem db and file storage
-	finished := make(chan bool)
+	terminated := make(chan bool)
 
-	storage, closeStorage := initStorage(ctx, finished, envCfg)
+	storage, closeStorage := initStorage(ctx, terminated, envCfg)
 	defer closeStorage()
 
 	repo := repo.New(ctx, envCfg, storage)
@@ -43,12 +42,12 @@ func main() {
 	cancel()
 	stopBySyscall()
 
-	<-finished
-	close(finished)
+	<-terminated
+	close(terminated)
 	log.Println("Server has been successfully terminated. Bye!")
 }
 
-func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (repo.Storage, func()) {
+func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) (repo.Storage, func()) {
 	// Using PostgreSQL
 	if cfg.PgDSN != "" {
 		db, closer := db.New(ctx, cfg)
@@ -56,7 +55,8 @@ func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (r
 
 		go func() {
 			<-ctx.Done()
-			finished <- true
+			// Nothing to do with Pg termination.
+			terminated <- true
 		}()
 
 		return db, closer
@@ -70,7 +70,7 @@ func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (r
 			log.Println("failed creating file storage", err)
 		}
 
-		dumper := intervaldump.New(ctx, finished, inmemory, fileStorage, cfg)
+		dumper := intervaldump.New(ctx, terminated, inmemory, fileStorage, cfg)
 		go dumper.Run(cfg.Restore, cfg.StoreInterval)
 
 		return inmemory, func() {
