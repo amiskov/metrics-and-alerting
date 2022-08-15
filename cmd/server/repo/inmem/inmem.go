@@ -43,9 +43,7 @@ func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) 
 		return metric, models.ErrorMetricNotFound
 	}
 
-	// return metric, nil
-	i := int64(23)
-	return models.Metrics{MType: "counter", Delta: &i, ID: "hui"}, nil
+	return metric, nil
 }
 
 // Get all metrics from inmemory storage
