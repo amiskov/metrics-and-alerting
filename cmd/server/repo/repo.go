@@ -80,6 +80,26 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// For `counter` metrics, update the Delta if metric already exists
+	if m.MType == models.MCounter && m.Delta != nil {
+		err := r.updateCounter(&m)
+		if err != nil {
+			return err
+		}
+	}
+
+	// add/replace the metric
+	err := r.DB.Upsert(r.Ctx, m)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) updateCounter(m *models.Metrics) error {
+	// For `counter` metrics, update the Delta if metric already exists
+	shouldHandleHash := m.Hash != "" && len(r.hashingKey) != 0
+
 	existingMetric, getErr := r.DB.Get(m.MType, m.ID)
 	if getErr == nil && m.MType == models.MCounter && m.Delta != nil {
 		currentDelta := *existingMetric.Delta
@@ -94,13 +114,6 @@ func (r *Repo) Update(m models.Metrics) error {
 			}
 		}
 	}
-
-	// add/replace the metric
-	err := r.DB.Upsert(r.Ctx, m)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -136,8 +149,15 @@ func (r *Repo) checkHash(m models.Metrics) error {
 }
 
 func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
-	// TODO: check types and hashes. See `Update`, create separate functions for metrics validation.
-	// TODO: For `counter` metrics, update the Delta if metric already exists
+	for idx, m := range metrics {
+		// TODO: check types and hashes. See `Update`, create separate functions for metrics validation.
+		if m.MType == models.MCounter {
+			err := r.updateCounter(&metrics[idx])
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	// add/replace metrics
 	err := r.DB.BatchUpsert(metrics)

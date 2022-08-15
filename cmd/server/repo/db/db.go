@@ -63,14 +63,6 @@ func (s *store) Upsert(ctx context.Context, m models.Metrics) error {
 			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
 	      value = excluded.value, delta = excluded.delta;`
 
-	if m.MType == models.MCounter {
-		existingMetric, err := s.Get(m.MType, m.ID)
-		if err == nil && m.Delta != nil { // exists
-			newDelta := *existingMetric.Delta + *m.Delta
-			m.Delta = &newDelta
-		}
-	}
-
 	_, err := s.db.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
 	if err != nil {
 		return fmt.Errorf("failed upserting metric `%#v`. %w", m, err)
@@ -165,6 +157,7 @@ func (s *store) getMetrics() ([]models.Metrics, error) {
 }
 
 func (s *store) BatchUpsert(metrics []models.Metrics) error {
+	// TODO: use batch inserting
 	for _, m := range metrics {
 		err := s.Upsert(s.ctx, m)
 		if err != nil {
