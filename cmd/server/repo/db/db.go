@@ -52,18 +52,22 @@ func (s store) Ping(ctx context.Context) error {
 	return s.DB.Ping(ctx)
 }
 
-func (s *store) BatchUpdate(ctx context.Context, metrics []models.Metrics) error {
-	return nil
-}
-
-func (s *store) Dump(ctx context.Context, metrics []models.Metrics) error {
-	log.Println("Dumping to Postgres...")
+func (s *store) Upsert(ctx context.Context, m models.Metrics) error {
 	q := `INSERT INTO metrics (type, name, value, delta)
 			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
 	      value = excluded.value, delta = excluded.delta;`
 
+	_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
+	if err != nil {
+		return fmt.Errorf("failed upserting metric `%#v`. %w", m, err)
+	}
+	return nil
+}
+
+func (s *store) Dump(ctx context.Context, metrics []models.Metrics) error {
+	// TODO: use batch inserting
 	for _, m := range metrics {
-		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
+		err := s.Upsert(ctx, m)
 		if err != nil {
 			return fmt.Errorf("failed dumping metric `%#v`. %w", m, err)
 		}

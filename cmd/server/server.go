@@ -10,6 +10,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/db"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 )
 
@@ -47,34 +48,34 @@ func main() {
 }
 
 func initStorage(ctx context.Context, envCfg *config.Config) (repo.Storage, func()) {
-	// if envCfg.PgDSN == "" {
-	storage, closeFile, err := file.New(envCfg.StoreFile)
-	if err != nil {
-		log.Println("Can't init server store:", err)
+	if envCfg.PgDSN == "" {
+		storage, closeFile, err := file.New(envCfg.StoreFile)
+		if err != nil {
+			log.Println("Can't init server store:", err)
+		}
+		closer := func() {
+			if err := closeFile(); err != nil {
+				log.Println("failed closing file storage:", err)
+			}
+		}
+
+		log.Println("File is used for storing metrics.")
+
+		return storage, closer
 	}
-	closer := func() {
-		if err := closeFile(); err != nil {
-			log.Println("failed closing file storage:", err)
+
+	db, closer := db.New(ctx, envCfg)
+
+	// Check if table with columns exist. If not, run the migration.
+	_, err := db.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
+	if err != nil {
+		// Always creates new `gauge` and `counter` PG types and `metrics` table.
+		if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
+			log.Println(dbErr)
 		}
 	}
 
-	log.Println("File is used for storing metrics.")
+	log.Println("PostgresDB is used for storing metrics.")
 
-	return storage, closer
-	// }
-
-	// db, closer := db.New(ctx, envCfg)
-
-	// // Check if table with columns exist. If not, run the migration.
-	// _, err := db.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
-	// if err != nil {
-	// 	// Always creates new `gauge` and `counter` PG types and `metrics` table.
-	// 	if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
-	// 		log.Println(dbErr)
-	// 	}
-	// }
-
-	// log.Println("PostgresDB is used for storing metrics.")
-
-	// return db, closer
+	return db, closer
 }

@@ -68,14 +68,8 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	body = []byte(`[
-		{"id": "BatchCounter", "type": "counter", "delta": 32},
-		{"id": "BatchGauge", "type": "gauge", "value": 0.222}
-	]`)
-
-	batch := []models.Metrics{}
-	jErr := json.Unmarshal(body, &batch)
-	fmt.Printf("%#v", batch)
+	metrics := []models.Metrics{}
+	jErr := json.Unmarshal(body, &metrics)
 	if jErr != nil {
 		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
@@ -83,7 +77,7 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err := api.repo.BatchUpsert(batch)
+	err := api.repo.BatchUpsert(metrics)
 	if err != nil {
 		log.Printf("Error batch update \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
