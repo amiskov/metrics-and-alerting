@@ -98,10 +98,7 @@ func (s *store) Get(metricType string, metricName string) (models.Metrics, error
 func (s *store) GetAll() []models.Metrics {
 	metrics, err := s.getMetrics()
 	if err != nil {
-		// TODO: this doesn't look good
-		log.Println()
-		log.Fatalln(err)
-		log.Println()
+		log.Println("failed get metrics from Postgres", err)
 		return nil
 	}
 	return metrics

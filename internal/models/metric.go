@@ -3,6 +3,7 @@ package models
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 )
 
@@ -26,6 +27,10 @@ type Metrics struct {
 
 func (m Metrics) GetHash(key []byte) (string, error) {
 	var src string
+
+	if len(key) == 0 {
+		return src, errors.New("hashing key is empty")
+	}
 
 	switch m.MType {
 	case MCounter:

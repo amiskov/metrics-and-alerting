@@ -23,7 +23,6 @@ func main() {
 	finished := make(chan bool)
 
 	storage, closeStorage := initStorage(ctx, finished, envCfg)
-	log.Println("storage", storage)
 	defer closeStorage()
 
 	repo := repo.New(ctx, envCfg, storage)
@@ -63,7 +62,7 @@ func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (r
 		return db, closer
 	}
 
-	inmemory := inmem.New(ctx)
+	inmemory := inmem.New(ctx, []byte(cfg.HashingKey))
 
 	if cfg.StoreFile != "" {
 		fileStorage, closeFile, err := file.New(cfg.StoreFile)

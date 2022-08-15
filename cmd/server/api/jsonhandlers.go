@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -93,7 +92,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	rw.Header().Set("Content-Type", "application/json")
 
 	body, berr := io.ReadAll(r.Body)
-	fmt.Println(string(body))
+	log.Println("upsert Body is", string(body))
 	if berr != nil {
 		log.Println("can't read request body")
 		return

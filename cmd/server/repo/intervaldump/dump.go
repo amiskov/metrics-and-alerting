@@ -54,8 +54,9 @@ func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 	if shouldRestore {
 		err := w.Restore()
 		if err != nil {
-			fmt.Println("can't restore from a file")
+			log.Println("can't restore from a file", err)
 		}
+		log.Println("restored from file.")
 	}
 
 	// Interval saving & restoring from a file
@@ -87,6 +88,7 @@ func (w worker) DumpPeriodically() {
 		if err := w.dumper.Dump(w.Ctx, w.storage.GetAll()); err != nil {
 			log.Println("interval saving to persistent storage failed:", err)
 		}
+		log.Println("dumped into file")
 	}
 }
 

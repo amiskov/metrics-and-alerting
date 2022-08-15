@@ -10,16 +10,18 @@ import (
 )
 
 type DB struct {
-	ctx  context.Context
-	mx   *sync.Mutex
-	data map[string]models.Metrics // string is `type+name`
+	ctx        context.Context
+	mx         *sync.Mutex
+	data       map[string]models.Metrics // string is `type+name`
+	hashingKey []byte
 }
 
-func New(ctx context.Context) *DB {
+func New(ctx context.Context, key []byte) *DB {
 	return &DB{
-		ctx:  ctx,
-		mx:   new(sync.Mutex),
-		data: make(map[string]models.Metrics),
+		ctx:        ctx,
+		mx:         new(sync.Mutex),
+		data:       make(map[string]models.Metrics),
+		hashingKey: key,
 	}
 }
 
@@ -41,7 +43,9 @@ func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) 
 		return metric, models.ErrorMetricNotFound
 	}
 
-	return metric, nil
+	// return metric, nil
+	i := int64(23)
+	return models.Metrics{MType: "counter", Delta: &i, ID: "hui"}, nil
 }
 
 // Get all metrics from inmemory storage
@@ -71,16 +75,14 @@ func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {
 	}
 
 	// create hashes for running server with current hashing key
-	// TODO: actualize hashes here
-	/*
-		if len(w.hashingKey) != 0 {
-			// NB: Since tests run each time with a different key we can't store hashes in persistent DB.
-			err := w.storage.ActualizeHashes(w.hashingKey)
-			if err != nil {
-				log.Println("can't update hashes", err)
-			}
+	if len(mdb.hashingKey) != 0 {
+		log.Println("hash is", mdb.hashingKey)
+		// NB: Since tests run each time with a different key we can't store hashes in persistent DB.
+		err := mdb.ActualizeHashes()
+		if err != nil {
+			log.Println("can't update hashes", err)
 		}
-	*/
+	}
 
 	return nil
 }
@@ -94,18 +96,20 @@ func (mdb *DB) Upsert(ctx context.Context, m models.Metrics) error {
 	return nil
 }
 
-func (mdb *DB) ActualizeHashes(key []byte) error {
+func (mdb *DB) ActualizeHashes() error {
 	mdb.mx.Lock()
 	defer mdb.mx.Unlock()
 
-	for k, m := range mdb.data {
-		hash, err := m.GetHash(key)
-		if err != nil {
-			log.Println("can't actualize hash", err)
-			return err
+	if len(mdb.hashingKey) > 0 {
+		for k, m := range mdb.data {
+			hash, err := m.GetHash(mdb.hashingKey)
+			if err != nil {
+				log.Println("can't actualize hash", err)
+				return err
+			}
+			m.Hash = hash
+			mdb.data[k] = m
 		}
-		m.Hash = hash
-		mdb.data[k] = m
 	}
 	return nil
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
@@ -25,7 +24,7 @@ func New(key []byte) *service {
 	return &service{
 		mx:         new(sync.RWMutex),
 		memStats:   new(runtime.MemStats),
-		metrics:    inmem.New(context.Background()),
+		metrics:    inmem.New(context.Background(), key),
 		hashingKey: key,
 	}
 }
@@ -101,16 +100,11 @@ func (s *service) updateCounter(id string) {
 			MType: models.MCounter,
 			Delta: &zero,
 		}
-		fmt.Printf("First update! %v, %d\n", m, *m.Delta)
 	}
-
-	log.Printf("m.before +1: %s:%d, %s.\n", m.ID, *m.Delta, m.Hash)
 
 	// if metric exists, increment its Delta
 	delta := *m.Delta + 1
 	m.Delta = &delta
-
-	log.Printf("m.before hash: %s:%d.\n", m.ID, *m.Delta)
 
 	// refresh metric hash if key available
 	if len(s.hashingKey) != 0 {
@@ -120,8 +114,6 @@ func (s *service) updateCounter(id string) {
 		}
 		m.Hash = hash
 	}
-
-	log.Printf("m.after hash: %s:%d, %s.\n", m.ID, *m.Delta, m.Hash)
 
 	// add/replace metric in storage
 	updErr := s.metrics.Upsert(context.Background(), m)
@@ -137,10 +129,12 @@ func (s *service) updateGauge(id string, val float64) {
 		Value: &val,
 	}
 
-	var hashingErr error
-	m.Hash, hashingErr = m.GetHash(s.hashingKey)
-	if hashingErr != nil {
-		log.Printf("failed creating hash for %s: %v", id, hashingErr)
+	if len(s.hashingKey) != 0 {
+		var hashingErr error
+		m.Hash, hashingErr = m.GetHash(s.hashingKey)
+		if hashingErr != nil {
+			log.Printf("failed creating hash for %s: %v", id, hashingErr)
+		}
 	}
 
 	updErr := s.metrics.Upsert(context.Background(), m)

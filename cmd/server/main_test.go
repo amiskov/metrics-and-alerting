@@ -79,14 +79,14 @@ func TestUpdateMetric(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			ctx, cancel := context.WithCancel(context.Background())
-			finished := make(chan bool)
 			defer cancel()
 
-			storage := inmem.New(ctx)
 			envCfg := &config.Config{
-				StoreFile: "",
-				Restore:   false,
+				StoreFile:  "",
+				Restore:    false,
+				HashingKey: "secret",
 			}
+			storage := inmem.New(ctx, []byte(envCfg.HashingKey))
 			repo := repo.New(ctx, envCfg, storage)
 			metricsAPI := api.New(repo)
 			metricsAPI.Router.ServeHTTP(w, request)
