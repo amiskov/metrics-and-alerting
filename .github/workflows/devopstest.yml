@@ -347,3 +347,29 @@ jobs:
             -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
             -key="${TEMP_FILE}"
 
+# XII. Задание к двенадцатому инкременту.
+# Сервер:
+# * Добавьте новый хендлер POST /updates/ принимающий в теле запроса множество метрик в формате: []Metrics (списка метрик)
+# Агент:
+# * Научите агента работать с использованием нового API (отправлять метрики батчами)
+# Стоит помнить:
+# * Необходимо соблюдать обратную совместимость
+# * Отправлять пустые батчи не нужно
+# * Мы умеем сжимать контент по алгоритму gzip
+# * Изменение в базе можно выполнять в рамках одной транзакции/одного запроса
+
+      - name: "Code increment #12"
+        if: always()
+        run: |
+          SERVER_PORT=$(random unused-port)
+          ADDRESS="localhost:${SERVER_PORT}"
+          TEMP_FILE=$(random tempfile)
+          devopstest -test.v -test.run=^TestIteration12$ \
+            -source-path=. \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -server-port=$SERVER_PORT \
+            -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
+            -key="${TEMP_FILE}"
+
+
