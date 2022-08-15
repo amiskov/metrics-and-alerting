@@ -13,8 +13,9 @@ import (
 )
 
 type store struct {
-	DB  *pgxpool.Pool
-	Ctx context.Context
+	db         *pgxpool.Pool
+	ctx        context.Context
+	hashingKey []byte
 }
 
 func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
@@ -25,8 +26,9 @@ func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
 	}
 
 	s := &store{
-		DB:  conn,
-		Ctx: ctx,
+		db:         conn,
+		ctx:        ctx,
+		hashingKey: []byte(envCfg.HashingKey),
 	}
 	return s, func() { conn.Close() }
 }
@@ -34,7 +36,7 @@ func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
 // Creates the `metrics` table if not exists.
 func (s *store) Migrate() {
 	// Check if table exists
-	_, err := s.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
+	_, err := s.db.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
 	if err == nil {
 		return
 	}
@@ -44,7 +46,7 @@ func (s *store) Migrate() {
 		log.Fatalln("can't read SQL schema file.", err)
 	}
 
-	_, exErr := s.DB.Exec(s.Ctx, string(schema))
+	_, exErr := s.db.Exec(s.ctx, string(schema))
 	if exErr != nil {
 		log.Fatalln("failed creating DB schema:", exErr)
 	}
@@ -53,7 +55,7 @@ func (s *store) Migrate() {
 }
 
 func (s store) Ping(ctx context.Context) error {
-	return s.DB.Ping(ctx)
+	return s.db.Ping(ctx)
 }
 
 func (s *store) Upsert(ctx context.Context, m models.Metrics) error {
@@ -61,7 +63,7 @@ func (s *store) Upsert(ctx context.Context, m models.Metrics) error {
 			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
 	      value = excluded.value, delta = excluded.delta;`
 
-	_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
+	_, err := s.db.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
 	if err != nil {
 		return fmt.Errorf("failed upserting metric `%#v`. %w", m, err)
 	}
@@ -92,11 +94,20 @@ func (s *store) Restore() ([]models.Metrics, error) {
 
 func (s *store) Get(metricType string, metricName string) (models.Metrics, error) {
 	m := models.Metrics{}
-	row := s.DB.QueryRow(s.Ctx, "select type, name, value, delta from metrics where type = $1 and name = $2",
+	row := s.db.QueryRow(s.ctx, "select type, name, value, delta from metrics where type = $1 and name = $2",
 		metricType, metricName)
 	err := row.Scan(&m.MType, &m.ID, &m.Value, &m.Delta)
 	if err != nil {
 		return m, err
+	}
+
+	if len(s.hashingKey) > 0 {
+		hash, err := m.GetHash(s.hashingKey)
+		if err != nil {
+			log.Println("can't actualize hash", err)
+			return m, err
+		}
+		m.Hash = hash
 	}
 
 	return m, nil
@@ -108,13 +119,26 @@ func (s *store) GetAll() []models.Metrics {
 		log.Println("failed get metrics from Postgres", err)
 		return nil
 	}
+
+	if len(s.hashingKey) > 0 {
+		for k, m := range metrics {
+			hash, err := m.GetHash(s.hashingKey)
+			if err != nil {
+				log.Println("can't actualize hash", err)
+				break
+			}
+			m.Hash = hash
+			metrics[k] = m
+		}
+	}
+
 	return metrics
 }
 
 func (s *store) getMetrics() ([]models.Metrics, error) {
 	metrics := make([]models.Metrics, 0, 10)
 
-	rows, err := s.DB.Query(context.Background(), "select type, name, value, delta from metrics")
+	rows, err := s.db.Query(context.Background(), "select type, name, value, delta from metrics")
 	if err != nil {
 		return metrics, err
 	}

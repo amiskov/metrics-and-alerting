@@ -81,13 +81,13 @@ func (r *Repo) Update(m models.Metrics) error {
 
 	// For `counter` metrics, update the Delta if metric already exists
 	existingMetric, getErr := r.DB.Get(m.MType, m.ID)
-	if getErr == nil && m.MType == models.MCounter {
+	if getErr == nil && m.MType == models.MCounter && m.Delta != nil {
 		currentDelta := *existingMetric.Delta
 		*m.Delta += currentDelta
 
 		if shouldHandleHash {
-			var err error
-			m.Hash, err = m.GetHash(r.hashingKey)
+			h, err := m.GetHash(r.hashingKey)
+			m.Hash = h
 			if err != nil {
 				log.Println("failed updating hash", err)
 				return err
