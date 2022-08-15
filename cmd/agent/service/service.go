@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type service struct {
 	mx         *sync.RWMutex
 	memStats   *runtime.MemStats
-	metrics    *models.InmemDB
+	metrics    *inmem.DB
 	hashingKey []byte
 }
 
@@ -24,7 +25,7 @@ func New(key []byte) *service {
 	return &service{
 		mx:         new(sync.RWMutex),
 		memStats:   new(runtime.MemStats),
-		metrics:    models.NewInmemDB(),
+		metrics:    inmem.NewInmemDB(),
 		hashingKey: key,
 	}
 }

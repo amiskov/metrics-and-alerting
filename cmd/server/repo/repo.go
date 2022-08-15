@@ -10,20 +10,22 @@ import (
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type Storage interface {
 	Ping(context.Context) error
-	Dump(context.Context, models.InmemDB) error
-	Restore(models.InmemDB) error
+	Dump(context.Context, []models.Metrics) error
+	Restore() ([]models.Metrics, error)
+	BatchUpsert([]models.Metrics) error
 }
 
 // Repo keeps metrics inmemory, dumps metrics to persistent `Storage` intervally,
 // and preloads metrics from `Storage` if `Restore` is `true`.
 type Repo struct {
 	mx            *sync.Mutex
-	inmemDB       *models.InmemDB
+	inmemDB       *inmem.DB
 	StoreInterval time.Duration // store immediately if `0`
 	Restore       bool          // restore from persistent storage on start if `true`
 	Ctx           context.Context
@@ -36,7 +38,7 @@ type Repo struct {
 func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage) *Repo {
 	repo := &Repo{
 		mx:            new(sync.Mutex),
-		inmemDB:       models.NewInmemDB(),
+		inmemDB:       inmem.NewInmemDB(),
 		StoreInterval: 0,
 		Restore:       cfg.Restore,
 		Ctx:           ctx,
@@ -49,9 +51,14 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 
 	// Restore from file or create empty metrics DB
 	if cfg.Restore {
-		err := repo.DB.Restore(*repo.inmemDB)
+		restoredMetrics, err := repo.DB.Restore()
 		if err != nil {
 			log.Println("can't restore data from storage:", err)
+		}
+
+		errR := repo.inmemDB.BatchUpsert(restoredMetrics)
+		if errR != nil {
+			log.Println("cant restore metrics to inmem")
 		}
 
 		// create hashes for running server with current hashing key
@@ -66,7 +73,7 @@ func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage)
 	var ticker *time.Ticker
 
 	save := func() {
-		if err := repo.DB.Dump(repo.Ctx, *repo.inmemDB); err != nil {
+		if err := repo.DB.Dump(repo.Ctx, repo.inmemDB.GetAll()); err != nil {
 			log.Println("failed saving metrics to persistent storage.", err)
 			return
 		}
@@ -166,7 +173,7 @@ func (r *Repo) Update(m models.Metrics) error {
 
 	// Immediately save metrics to the persistent storage if needed
 	if r.StoreInterval == 0 || r.storesToPg {
-		if err := r.DB.Dump(r.Ctx, *r.inmemDB); err != nil {
+		if err := r.DB.Dump(r.Ctx, r.inmemDB.GetAll()); err != nil {
 			log.Println("failed saving metrics to persistent storage.", err)
 		}
 	}
@@ -200,6 +207,26 @@ func (r *Repo) checkHash(m models.Metrics) error {
 			"A: %s\n"+
 			"S: %s",
 			r.hashingKey, m.Hash, serverHash)
+	}
+
+	return nil
+}
+
+func (r *Repo) BatchUpsert(models []models.Metrics) error {
+	// TODO: check types and hashes. See `Update`, create separate functions for metrics validation.
+	// TODO: For `counter` metrics, update the Delta if metric already exists
+
+	// add/replace metrics
+	err := r.inmemDB.BatchUpsert(models)
+	if err != nil {
+		return err
+	}
+
+	// Immediately save metrics to the persistent storage if needed
+	if r.StoreInterval == 0 || r.storesToPg {
+		if err := r.DB.Dump(r.Ctx, r.inmemDB.GetAll()); err != nil {
+			log.Println("failed saving metrics to persistent storage.", err)
+		}
 	}
 
 	return nil

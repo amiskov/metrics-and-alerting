@@ -15,7 +15,8 @@ type Repo interface {
 	Ping(context.Context) error
 	Get(metricType string, metricName string) (models.Metrics, error)
 	GetAll() []models.Metrics
-	Update(m models.Metrics) error
+	Update(models.Metrics) error
+	BatchUpsert([]models.Metrics) error
 }
 
 type metricsAPI struct {

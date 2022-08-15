@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -45,31 +46,24 @@ func (fs *fileStorage) addFileStorage(name string) (func() error, error) {
 }
 
 // Decodes JSON from the file and writes it to the given `MetricsDB`.
-func (fs *fileStorage) Restore(inmemDB models.InmemDB) error {
+func (fs *fileStorage) Restore() ([]models.Metrics, error) {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
 	err := dec.Decode(&storedMetrics)
 
 	if errors.Is(err, io.EOF) {
 		log.Println("File is empty, nothing to restore.")
-		return nil // empty file is not an error
+		return storedMetrics, nil // empty file is not an error
 	}
 
-	if errors.Is(err, nil) {
-		for _, m := range storedMetrics {
-			updErr := inmemDB.Upsert(m)
-			if updErr != nil {
-				return updErr
-			}
-		}
-		log.Printf("Metrics data restored from %s", fs.file.Name())
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("failed restoring metrics from file `%s`: %w", fs.file.Name(), err)
 	}
 
-	return err
+	return storedMetrics, err
 }
 
-func (fs *fileStorage) Dump(ctx context.Context, inmemDB models.InmemDB) error {
+func (fs *fileStorage) Dump(ctx context.Context, metrics []models.Metrics) error {
 	if _, err := fs.file.Stat(); err != nil {
 		log.Println("Can't save to file:", err)
 		return err
@@ -85,7 +79,7 @@ func (fs *fileStorage) Dump(ctx context.Context, inmemDB models.InmemDB) error {
 		return err
 	}
 
-	if err := json.NewEncoder(fs.file).Encode(inmemDB.GetAll()); err != nil {
+	if err := json.NewEncoder(fs.file).Encode(metrics); err != nil {
 		log.Printf("Can't store to file `%s`: %s.\n", fs.file.Name(), err)
 		return err
 	}
@@ -96,5 +90,10 @@ func (fs *fileStorage) Dump(ctx context.Context, inmemDB models.InmemDB) error {
 }
 
 func (fs fileStorage) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (fs fileStorage) BatchUpsert(metrics []models.Metrics) error {
+	// TODO: implement batch upsert to file
 	return nil
 }

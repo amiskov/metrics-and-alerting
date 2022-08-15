@@ -52,13 +52,17 @@ func (s store) Ping(ctx context.Context) error {
 	return s.DB.Ping(ctx)
 }
 
-func (s *store) Dump(ctx context.Context, inmemDB models.InmemDB) error {
+func (s *store) BatchUpdate(ctx context.Context, metrics []models.Metrics) error {
+	return nil
+}
+
+func (s *store) Dump(ctx context.Context, metrics []models.Metrics) error {
 	log.Println("Dumping to Postgres...")
 	q := `INSERT INTO metrics (type, name, value, delta)
 			  VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
 	      value = excluded.value, delta = excluded.delta;`
 
-	for _, m := range inmemDB.GetAll() {
+	for _, m := range metrics {
 		_, err := s.DB.Exec(context.Background(), q, m.MType, m.ID, m.Value, m.Delta)
 		if err != nil {
 			return fmt.Errorf("failed dumping metric `%#v`. %w", m, err)
@@ -68,21 +72,14 @@ func (s *store) Dump(ctx context.Context, inmemDB models.InmemDB) error {
 	return nil
 }
 
-func (s *store) Restore(inmemDB models.InmemDB) error {
+func (s *store) Restore() ([]models.Metrics, error) {
 	metrics, err := s.getMetrics()
 	if err != nil {
-		return err
-	}
-
-	for _, m := range metrics {
-		err := inmemDB.Upsert(m)
-		if err != nil {
-			return err
-		}
+		return nil, err
 	}
 
 	log.Println("Metrics restored from PostgreSQL.")
-	return nil
+	return metrics, nil
 }
 
 func (s *store) getMetrics() ([]models.Metrics, error) {
@@ -104,4 +101,9 @@ func (s *store) getMetrics() ([]models.Metrics, error) {
 	}
 
 	return metrics, nil
+}
+
+func (s *store) BatchUpsert(metrics []models.Metrics) error {
+	// TODO: implement. Just call Dump?
+	return nil
 }

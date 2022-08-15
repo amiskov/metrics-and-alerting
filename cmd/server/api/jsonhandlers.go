@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -60,12 +61,47 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	writeBody(rw, jbz)
 }
 
+func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Request) {
+	body, berr := io.ReadAll(r.Body)
+	if berr != nil {
+		log.Println("can't read request body")
+		return
+	}
+
+	body = []byte(`[
+		{"id": "BatchCounter", "type": "counter", "delta": 32},
+		{"id": "BatchGauge", "type": "gauge", "value": 0.222}
+	]`)
+
+	batch := []models.Metrics{}
+	jErr := json.Unmarshal(body, &batch)
+	fmt.Printf("%#v", batch)
+	if jErr != nil {
+		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
+		rw.WriteHeader(http.StatusBadRequest)
+		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		return
+	}
+
+	err := api.repo.BatchUpsert(batch)
+	if err != nil {
+		log.Printf("Error batch update \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
+		rw.WriteHeader(http.StatusBadRequest)
+		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	writeBody(rw, []byte(`{"message": "metrics updated"}`))
+}
+
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 
 	body, berr := io.ReadAll(r.Body)
+	fmt.Println(string(body))
 	if berr != nil {
-		log.Println("Cant read body")
+		log.Println("can't read request body")
 		return
 	}
 
