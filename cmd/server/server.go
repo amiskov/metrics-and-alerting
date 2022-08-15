@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -12,19 +11,22 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/db"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/intervaldump"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	finished := make(chan bool)
-
 	envCfg := config.Parse()
 
-	storage, storageCloser := initStorage(ctx, envCfg)
-	defer storageCloser()
+	// TODO: move to the case with inmem db and file storage
+	finished := make(chan bool)
 
-	repo := repo.New(ctx, finished, envCfg, storage)
-	fmt.Println("repo created")
+	storage, closeStorage := initStorage(ctx, finished, envCfg)
+	log.Println("storage", storage)
+	defer closeStorage()
+
+	repo := repo.New(ctx, envCfg, storage)
 
 	metricsAPI := api.New(repo)
 	go metricsAPI.Run(envCfg.Address)
@@ -47,35 +49,31 @@ func main() {
 	log.Println("Server has been successfully terminated. Bye!")
 }
 
-func initStorage(ctx context.Context, envCfg *config.Config) (repo.Storage, func()) {
-	if envCfg.PgDSN == "" {
-		storage, closeFile, err := file.New(envCfg.StoreFile)
+func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (repo.Storage, func()) {
+	// Using PostgreSQL
+	if cfg.PgDSN != "" {
+		db, closer := db.New(ctx, cfg)
+		db.Migrate()
+		return db, closer
+	}
+
+	inmemory := inmem.New(ctx)
+
+	if cfg.StoreFile != "" {
+		fileStorage, closeFile, err := file.New(cfg.StoreFile)
 		if err != nil {
-			log.Println("Can't init server store:", err)
+			log.Println("failed creating file storage", err)
 		}
-		closer := func() {
+
+		dumper := intervaldump.New(ctx, finished, inmemory, fileStorage, cfg)
+		go dumper.Run(cfg.Restore, cfg.StoreInterval)
+
+		return inmemory, func() {
 			if err := closeFile(); err != nil {
-				log.Println("failed closing file storage:", err)
+				log.Println("failed closing file", cfg.StoreFile)
 			}
 		}
-
-		log.Println("File is used for storing metrics.")
-
-		return storage, closer
 	}
 
-	db, closer := db.New(ctx, envCfg)
-
-	// Check if table with columns exist. If not, run the migration.
-	_, err := db.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
-	if err != nil {
-		// Always creates new `gauge` and `counter` PG types and `metrics` table.
-		if dbErr := db.Migrate("sql/schema.sql"); dbErr != nil {
-			log.Println(dbErr)
-		}
-	}
-
-	log.Println("PostgresDB is used for storing metrics.")
-
-	return db, closer
+	return inmemory, func() {}
 }

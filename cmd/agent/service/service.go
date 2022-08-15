@@ -25,7 +25,7 @@ func New(key []byte) *service {
 	return &service{
 		mx:         new(sync.RWMutex),
 		memStats:   new(runtime.MemStats),
-		metrics:    inmem.NewInmemDB(),
+		metrics:    inmem.New(context.Background()),
 		hashingKey: key,
 	}
 }
@@ -124,7 +124,7 @@ func (s *service) updateCounter(id string) {
 	log.Printf("m.after hash: %s:%d, %s.\n", m.ID, *m.Delta, m.Hash)
 
 	// add/replace metric in storage
-	updErr := s.metrics.Upsert(m)
+	updErr := s.metrics.Upsert(context.Background(), m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}
@@ -143,7 +143,7 @@ func (s *service) updateGauge(id string, val float64) {
 		log.Printf("failed creating hash for %s: %v", id, hashingErr)
 	}
 
-	updErr := s.metrics.Upsert(m)
+	updErr := s.metrics.Upsert(context.Background(), m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}

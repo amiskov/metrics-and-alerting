@@ -19,30 +19,15 @@ type fileStorage struct {
 type closer func() error
 
 func New(filePath string) (*fileStorage, closer, error) {
-	shouldUseStoreFile := filePath != ""
-
-	s := fileStorage{}
-
-	// Init file Storage
-	fileCloser := func() error { return nil }
-	if shouldUseStoreFile {
-		var err error
-		fileCloser, err = s.addFileStorage(filePath)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	return &s, fileCloser, nil
-}
-
-func (fs *fileStorage) addFileStorage(name string) (func() error, error) {
-	file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0o777)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0o777)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	fs.file = file
-	return file.Close, nil
+	s := fileStorage{
+		file: file,
+	}
+	log.Printf("Using `%s` as a storage.\n", file.Name())
+	return &s, file.Close, err
 }
 
 // Decodes JSON from the file and writes it to the given `MetricsDB`.
@@ -50,17 +35,10 @@ func (fs *fileStorage) Restore() ([]models.Metrics, error) {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
 	err := dec.Decode(&storedMetrics)
-
-	if errors.Is(err, io.EOF) {
-		log.Println("File is empty, nothing to restore.")
-		return storedMetrics, nil // empty file is not an error
-	}
-
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("failed restoring metrics from file `%s`: %w", fs.file.Name(), err)
 	}
-
-	return storedMetrics, err
+	return storedMetrics, nil
 }
 
 func (fs *fileStorage) Dump(ctx context.Context, metrics []models.Metrics) error {
@@ -90,10 +68,5 @@ func (fs *fileStorage) Dump(ctx context.Context, metrics []models.Metrics) error
 }
 
 func (fs fileStorage) Ping(ctx context.Context) error {
-	return nil
-}
-
-func (fs fileStorage) BatchUpsert(metrics []models.Metrics) error {
-	// TODO: implement batch upsert to file
 	return nil
 }

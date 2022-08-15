@@ -24,28 +24,33 @@ func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
 		os.Exit(1)
 	}
 
-	closer := func() {
-		conn.Close()
-	}
-
-	return &store{
+	s := &store{
 		DB:  conn,
 		Ctx: ctx,
-	}, closer
+	}
+	log.Printf("from db.go %#v", s)
+	return s, func() { conn.Close() }
 }
 
-func (s *store) Migrate(schemaFile string) error {
-	schema, err := os.ReadFile(schemaFile)
+// Creates the `metrics` table if not exists.
+func (s *store) Migrate() {
+	// Check if table exists
+	_, err := s.DB.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
+	if err == nil {
+		return
+	}
+
+	schema, err := os.ReadFile("sql/schema.sql")
 	if err != nil {
 		log.Fatalln("can't read SQL schema file.", err)
 	}
-	query := string(schema)
-	if _, err := s.DB.Exec(s.Ctx, query); err == nil {
-		log.Println("DB schema has been created")
-	} else {
-		log.Fatalln("failed creating DB schema:", err)
+
+	_, exErr := s.DB.Exec(s.Ctx, string(schema))
+	if exErr != nil {
+		log.Fatalln("failed creating DB schema:", exErr)
 	}
-	return nil
+
+	log.Println("DB schema has been created")
 }
 
 func (s store) Ping(ctx context.Context) error {
@@ -84,6 +89,23 @@ func (s *store) Restore() ([]models.Metrics, error) {
 
 	log.Println("Metrics restored from PostgreSQL.")
 	return metrics, nil
+}
+
+func (s *store) Get(metricType string, metricName string) (models.Metrics, error) {
+	m := models.Metrics{}
+	return m, nil
+}
+
+func (s *store) GetAll() []models.Metrics {
+	metrics, err := s.getMetrics()
+	if err != nil {
+		// TODO: this doesn't look good
+		log.Println()
+		log.Fatalln(err)
+		log.Println()
+		return nil
+	}
+	return metrics
 }
 
 func (s *store) getMetrics() ([]models.Metrics, error) {

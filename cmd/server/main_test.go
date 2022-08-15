@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +9,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
+	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -83,20 +82,12 @@ func TestUpdateMetric(t *testing.T) {
 			finished := make(chan bool)
 			defer cancel()
 
-			storage, closeFile, err := file.New("")
-			if err != nil {
-				log.Fatalln("Creating server store failed.", err)
-			}
-			defer func() {
-				if err := closeFile(); err != nil {
-					log.Println("failed closing file storage:", err)
-				}
-			}()
+			storage := inmem.New(ctx)
 			envCfg := &config.Config{
 				StoreFile: "",
 				Restore:   false,
 			}
-			repo := repo.New(ctx, finished, envCfg, storage)
+			repo := repo.New(ctx, envCfg, storage)
 			metricsAPI := api.New(repo)
 			metricsAPI.Router.ServeHTTP(w, request)
 

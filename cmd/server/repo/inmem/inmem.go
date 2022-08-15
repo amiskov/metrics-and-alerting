@@ -1,6 +1,7 @@
 package inmem
 
 import (
+	"context"
 	"log"
 	"sort"
 	"sync"
@@ -9,15 +10,21 @@ import (
 )
 
 type DB struct {
+	ctx  context.Context
 	mx   *sync.Mutex
 	data map[string]models.Metrics // string is `type+name`
 }
 
-func NewInmemDB() *DB {
+func New(ctx context.Context) *DB {
 	return &DB{
+		ctx:  ctx,
 		mx:   new(sync.Mutex),
 		data: make(map[string]models.Metrics),
 	}
+}
+
+func (mdb DB) Ping(ctx context.Context) error {
+	return nil
 }
 
 func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) {
@@ -57,16 +64,28 @@ func (mdb DB) GetAll() []models.Metrics {
 func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {
 	for _, m := range metrics {
 		// `.Upsert` is concurrently safe
-		updErr := mdb.Upsert(m)
+		updErr := mdb.Upsert(mdb.ctx, m)
 		if updErr != nil {
 			return updErr
 		}
 	}
 
+	// create hashes for running server with current hashing key
+	// TODO: actualize hashes here
+	/*
+		if len(w.hashingKey) != 0 {
+			// NB: Since tests run each time with a different key we can't store hashes in persistent DB.
+			err := w.storage.ActualizeHashes(w.hashingKey)
+			if err != nil {
+				log.Println("can't update hashes", err)
+			}
+		}
+	*/
+
 	return nil
 }
 
-func (mdb *DB) Upsert(m models.Metrics) error {
+func (mdb *DB) Upsert(ctx context.Context, m models.Metrics) error {
 	mdb.mx.Lock()
 	defer mdb.mx.Unlock()
 

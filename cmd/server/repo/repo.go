@@ -10,107 +10,38 @@ import (
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
 type Storage interface {
+	Get(metricType string, metricName string) (models.Metrics, error)
+	GetAll() []models.Metrics
 	Ping(context.Context) error
-	Dump(context.Context, []models.Metrics) error
-	Restore() ([]models.Metrics, error)
 	BatchUpsert([]models.Metrics) error // TODO: add ctx
+	Upsert(context.Context, models.Metrics) error
 }
 
-// Repo keeps metrics inmemory, dumps metrics to persistent `Storage` intervally,
-// and preloads metrics from `Storage` if `Restore` is `true`.
 type Repo struct {
-	mx            *sync.Mutex
-	inmemDB       *inmem.DB
-	StoreInterval time.Duration // store immediately if `0`
-	Restore       bool          // restore from persistent storage on start if `true`
-	Ctx           context.Context
-	Finished      chan bool // to make sure we wrote the data while terminating
-	hashingKey    []byte
-	DB            Storage
+	mx         *sync.Mutex
+	Ctx        context.Context
+	hashingKey []byte
+	DB         Storage
 }
 
-func New(ctx context.Context, finished chan bool, cfg *config.Config, s Storage) *Repo {
+func New(ctx context.Context, cfg *config.Config, s Storage) *Repo {
 	repo := &Repo{
-		mx:            new(sync.Mutex),
-		inmemDB:       inmem.NewInmemDB(),
-		StoreInterval: cfg.StoreInterval,
-		Restore:       cfg.Restore,
-		Ctx:           ctx,
-		Finished:      finished,
-		hashingKey:    []byte(cfg.HashingKey),
-		DB:            s,
+		mx:         new(sync.Mutex),
+		Ctx:        ctx,
+		hashingKey: []byte(cfg.HashingKey),
+		DB:         s,
 	}
 
 	// TODO: fixme. This is a cheat for inc11 to skip interval dumping for Postgres.
 	// When using Pg we persist data on every update.
 	if cfg.PgDSN != "" {
-		repo.StoreInterval = 0
-	}
-
-	// Restore metrics from persistent storage or create an empty inmemory DB
-	if cfg.Restore {
-		restoredMetrics, err := repo.DB.Restore()
-		if err != nil {
-			log.Println("can't restore data from storage:", err)
-		}
-
-		errR := repo.inmemDB.BatchUpsert(restoredMetrics)
-		if errR != nil {
-			log.Println("cant restore metrics to inmem")
-		}
-
-		// create hashes for running server with current hashing key
-		if len(repo.hashingKey) != 0 {
-			// NB: Since tests run each time with a different key we can't store hashes in persistent DB.
-			err := repo.inmemDB.ActualizeHashes(repo.hashingKey)
-			if err != nil {
-				log.Println("can't update hashes", err)
-			}
-		}
-	}
-
-	var ticker *time.Ticker
-
-	go repo.HandleTermination(ticker)
-
-	if repo.StoreInterval > 0 {
-		ticker = time.NewTicker(repo.StoreInterval)
-		go repo.SavePeriodically(ticker)
 	}
 
 	return repo
-}
-
-// Handle program termination: save data and stop ticker if it's running.
-func (r Repo) HandleTermination(ticker *time.Ticker) {
-	<-r.Ctx.Done()
-	if ticker != nil {
-		ticker.Stop()
-		log.Println("Saving timer stopped.")
-	}
-	if err := r.DB.Dump(r.Ctx, r.inmemDB.GetAll()); err != nil {
-		log.Println("failed saving to persistent storage:", err)
-	}
-	r.Finished <- true
-}
-
-// Interval saving to persistent storage.
-func (r Repo) SavePeriodically(ticker *time.Ticker) {
-	if r.StoreInterval <= 0 {
-		log.Println("interval should be non-zero positive number")
-		return
-	}
-	defer ticker.Stop()
-	for range ticker.C {
-		if err := r.DB.Dump(r.Ctx, r.inmemDB.GetAll()); err != nil {
-			log.Println("interval saving saving to persistent storage failed:", err)
-		}
-	}
 }
 
 func (r Repo) Ping(ctx context.Context) error {
@@ -120,12 +51,12 @@ func (r Repo) Ping(ctx context.Context) error {
 }
 
 func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) {
-	return r.inmemDB.Get(metricType, metricName)
+	return r.DB.Get(metricType, metricName)
 }
 
 // Get all metrics from inmemory storage
 func (r Repo) GetAll() []models.Metrics {
-	return r.inmemDB.GetAll()
+	return r.DB.GetAll()
 }
 
 func (r *Repo) Update(m models.Metrics) error {
@@ -155,7 +86,7 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// For `counter` metrics, update the Delta if metric already exists
-	existingMetric, getErr := r.inmemDB.Get(m.MType, m.ID)
+	existingMetric, getErr := r.DB.Get(m.MType, m.ID)
 	if getErr == nil && m.MType == models.MCounter {
 		currentDelta := *existingMetric.Delta
 		*m.Delta += currentDelta
@@ -171,17 +102,9 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// add/replace the metric
-	err := r.inmemDB.Upsert(m)
+	err := r.DB.Upsert(r.Ctx, m)
 	if err != nil {
 		return err
-	}
-
-	// Immediately save metrics to the persistent storage if needed
-	if r.StoreInterval == 0 {
-		// TODO: use Upsert here
-		if err := r.DB.Dump(r.Ctx, r.inmemDB.GetAll()); err != nil {
-			log.Println("failed saving metrics to persistent storage.", err)
-		}
 	}
 
 	return nil
@@ -223,16 +146,9 @@ func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
 	// TODO: For `counter` metrics, update the Delta if metric already exists
 
 	// add/replace metrics
-	err := r.inmemDB.BatchUpsert(metrics)
+	err := r.DB.BatchUpsert(metrics)
 	if err != nil {
 		return err
-	}
-
-	// Immediately save metrics to the persistent storage if needed
-	if r.StoreInterval == 0 {
-		if err := r.DB.Dump(r.Ctx, metrics); err != nil {
-			log.Println("failed saving metrics to persistent storage.", err)
-		}
 	}
 
 	return nil
