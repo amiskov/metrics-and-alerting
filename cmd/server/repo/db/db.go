@@ -92,6 +92,13 @@ func (s *store) Restore() ([]models.Metrics, error) {
 
 func (s *store) Get(metricType string, metricName string) (models.Metrics, error) {
 	m := models.Metrics{}
+	row := s.DB.QueryRow(s.Ctx, "select type, name, value, delta from metrics where type = $1 and name = $2",
+		metricType, metricName)
+	err := row.Scan(&m.MType, &m.ID, &m.Value, &m.Delta)
+	if err != nil {
+		return m, err
+	}
+
 	return m, nil
 }
 
