@@ -28,7 +28,6 @@ func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
 		DB:  conn,
 		Ctx: ctx,
 	}
-	log.Printf("from db.go %#v", s)
 	return s, func() { conn.Close() }
 }
 

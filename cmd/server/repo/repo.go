@@ -35,12 +35,6 @@ func New(ctx context.Context, cfg *config.Config, s Storage) *Repo {
 		hashingKey: []byte(cfg.HashingKey),
 		DB:         s,
 	}
-
-	// TODO: fixme. This is a cheat for inc11 to skip interval dumping for Postgres.
-	// When using Pg we persist data on every update.
-	if cfg.PgDSN != "" {
-	}
-
 	return repo
 }
 

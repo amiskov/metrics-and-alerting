@@ -54,6 +54,12 @@ func initStorage(ctx context.Context, finished chan bool, cfg *config.Config) (r
 	if cfg.PgDSN != "" {
 		db, closer := db.New(ctx, cfg)
 		db.Migrate()
+
+		go func() {
+			<-ctx.Done()
+			finished <- true
+		}()
+
 		return db, closer
 	}
 
