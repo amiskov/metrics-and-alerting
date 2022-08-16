@@ -8,12 +8,12 @@ import (
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/db"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/intervaldump"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/db"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/file"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/inmem"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/intervaldump"
 )
 
 func main() {

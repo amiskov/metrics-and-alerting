@@ -8,9 +8,9 @@ import (
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/inmem"
 )
 
 func TestUpdateMetric(t *testing.T) {

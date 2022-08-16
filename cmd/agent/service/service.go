@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/repo/inmem"
 )
 
 type service struct {
