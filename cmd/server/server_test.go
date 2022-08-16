@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/server/api"
 	"github.com/amiskov/metrics-and-alerting/pkg/server/repo"
@@ -82,12 +81,7 @@ func TestUpdateMetric(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			envCfg := &config.Config{
-				StoreFile:  "",
-				Restore:    false,
-				HashingKey: "secret",
-			}
-			hashingKey := []byte(envCfg.HashingKey)
+			hashingKey := []byte("secret")
 
 			storage := inmem.New(ctx, hashingKey)
 			repo := repo.New(ctx, hashingKey, storage)

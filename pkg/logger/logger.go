@@ -1,3 +1,8 @@
+// Package logger implements context-aware logging.
+//
+// It adds tracing into HTTP communication and allows us to track concurrent
+// log records by request ID. It may be handy since the log is non-linear because
+// goroutines add logs asynchronously.
 package logger
 
 import (
@@ -73,9 +78,9 @@ func Run(level string) *Logger {
 	fallbackLogger = zapLogger.With(
 		zap.String("logger", "fallbackLogger"),
 	).WithOptions(
-	// zap.IncreaseLevel(minLevel),
-	// zap.AddCallerSkip(1),
-	// zap.AddStacktrace(zap.DebugLevel),
+		zap.IncreaseLevel(minLevel),
+		zap.AddCallerSkip(1),
+		zap.AddStacktrace(zap.DebugLevel),
 	).Sugar()
 
 	return logger

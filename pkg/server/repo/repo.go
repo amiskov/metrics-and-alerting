@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
@@ -61,21 +62,22 @@ func (r *Repo) Update(m models.Metrics) error {
 	shouldHandleHash := m.Hash != "" && len(r.hashingKey) != 0
 
 	// Check metric hash
+	var hashErr error
 	if shouldHandleHash {
-		if err := r.checkHash(m); err != nil {
-			v := ""
+		hashErr = r.checkHash(m)
+	}
 
-			if m.MType == models.MCounter {
-				v = fmt.Sprintf("%d", *m.Delta)
-			}
-			if m.MType == models.MGauge {
-				v = fmt.Sprintf("%f", *m.Value)
-			}
-
-			log.Printf("bad hash `%s` for `%s:%s:%s` (`%s`). Error: %v.\n",
-				m.Hash, m.ID, m.MType, v, string(r.hashingKey), err)
-			return err
+	if hashErr != nil {
+		v := ""
+		if m.MType == models.MCounter {
+			v = fmt.Sprintf("%d", *m.Delta)
 		}
+		if m.MType == models.MGauge {
+			v = fmt.Sprintf("%f", *m.Value)
+		}
+		logger.Log(r.Ctx).Errorf("bad hash `%s` for `%s:%s:%s` (`%s`). Error: %v.\n",
+			m.Hash, m.ID, m.MType, v, string(r.hashingKey), hashErr)
+		return hashErr
 	}
 
 	// For `counter` metrics, update the Delta if metric already exists
