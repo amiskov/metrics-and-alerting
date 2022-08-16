@@ -16,7 +16,7 @@ type Storage interface {
 	Ping(context.Context) error
 	Get(metricType string, metricName string) (models.Metrics, error)
 	GetAll() ([]models.Metrics, error)
-	Update(context.Context, models.Metrics) error
+	Update(models.Metrics) error
 	BulkUpdate([]models.Metrics) error
 }
 
@@ -81,7 +81,7 @@ func (r *Repo) Update(m models.Metrics) error {
 		return err
 	}
 
-	err := r.db.Update(r.ctx, m)
+	err := r.db.Update(m)
 	if err != nil {
 		logger.Log(r.ctx).Error("repo: update failed %v", err)
 		return err

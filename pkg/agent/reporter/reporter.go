@@ -22,19 +22,19 @@ type updater interface {
 type reporter struct {
 	updater        updater
 	ctx            context.Context
-	done           chan bool
+	terminated     chan bool
 	reportInterval time.Duration
 	serverURL      string
 	hashingKey     []byte
 }
 
-func New(ctx context.Context, s updater, done chan bool,
+func New(ctx context.Context, u updater, terminated chan bool,
 	reportInterval time.Duration, address string, hashingKey string,
 ) *reporter {
 	return &reporter{
-		updater:        s,
+		updater:        u,
 		ctx:            ctx,
-		done:           done,
+		terminated:     terminated,
 		reportInterval: reportInterval,
 		serverURL:      "http://" + address,
 		hashingKey:     []byte(hashingKey),
@@ -56,7 +56,7 @@ func (r *reporter) runReporter(apiType int) {
 		<-r.ctx.Done()
 		ticker.Stop()
 		log.Println("Metrics report stopped.")
-		r.done <- true
+		r.terminated <- true
 	}()
 
 	for range ticker.C {

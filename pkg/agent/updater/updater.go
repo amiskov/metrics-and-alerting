@@ -13,85 +13,87 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
-type service struct {
+type updater struct {
 	mx         *sync.RWMutex
+	ctx        context.Context
 	memStats   *runtime.MemStats
 	metrics    *inmem.DB
 	hashingKey []byte
 }
 
-func New(key []byte) *service {
-	return &service{
+func New(ctx context.Context, key []byte) *updater {
+	return &updater{
 		mx:         new(sync.RWMutex),
+		ctx:        ctx,
 		memStats:   new(runtime.MemStats),
-		metrics:    inmem.New(context.Background(), key),
+		metrics:    inmem.New(ctx, key),
 		hashingKey: key,
 	}
 }
 
-func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Duration) {
+func (u *updater) Run(terminated chan bool, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 
 	go func() {
-		<-ctx.Done()
+		<-u.ctx.Done()
 		ticker.Stop()
 		log.Println("Metrics update stopped.")
-		done <- true
+		terminated <- true
 	}()
 
 	for range ticker.C {
-		s.updateMetrics()
+		u.updateMetrics()
 	}
 }
 
-func (s *service) GetMetrics() ([]models.Metrics, error) {
-	s.mx.Lock()
-	defer s.mx.Unlock()
-	return s.metrics.GetAll()
+func (u *updater) GetMetrics() ([]models.Metrics, error) {
+	u.mx.Lock()
+	defer u.mx.Unlock()
+	return u.metrics.GetAll()
 }
 
-func (s *service) updateMetrics() {
-	runtime.ReadMemStats(s.memStats)
+func (u *updater) updateMetrics() {
+	runtime.ReadMemStats(u.memStats)
 
-	s.mx.Lock()
-	defer s.mx.Unlock()
+	u.mx.Lock()
+	defer u.mx.Unlock()
 
-	s.updateGauge("Alloc", float64(s.memStats.Alloc))
-	s.updateGauge("BuckHashSys", float64(s.memStats.BuckHashSys))
-	s.updateGauge("Frees", float64(s.memStats.Frees))
-	s.updateGauge("GCCPUFraction", s.memStats.GCCPUFraction)
-	s.updateGauge("GCSys", float64(s.memStats.GCSys))
-	s.updateGauge("HeapAlloc", float64(s.memStats.HeapAlloc))
-	s.updateGauge("HeapIdle", float64(s.memStats.HeapIdle))
-	s.updateGauge("HeapInuse", float64(s.memStats.HeapInuse))
-	s.updateGauge("HeapObjects", float64(s.memStats.HeapObjects))
-	s.updateGauge("HeapReleased", float64(s.memStats.HeapReleased))
-	s.updateGauge("HeapSys", float64(s.memStats.HeapSys))
-	s.updateGauge("LastGC", float64(s.memStats.LastGC))
-	s.updateGauge("Lookups", float64(s.memStats.Lookups))
-	s.updateGauge("MCacheInuse", float64(s.memStats.MCacheInuse))
-	s.updateGauge("MCacheSys", float64(s.memStats.MCacheSys))
-	s.updateGauge("MSpanInuse", float64(s.memStats.MSpanInuse))
-	s.updateGauge("MSpanSys", float64(s.memStats.MSpanSys))
-	s.updateGauge("Mallocs", float64(s.memStats.Mallocs))
-	s.updateGauge("NextGC", float64(s.memStats.NextGC))
-	s.updateGauge("NumForcedGC", float64(s.memStats.NumForcedGC))
-	s.updateGauge("NumGC", float64(s.memStats.NumGC))
-	s.updateGauge("OtherSys", float64(s.memStats.OtherSys))
-	s.updateGauge("PauseTotalNs", float64(s.memStats.PauseTotalNs))
-	s.updateGauge("StackInuse", float64(s.memStats.StackInuse))
-	s.updateGauge("StackSys", float64(s.memStats.StackSys))
-	s.updateGauge("Sys", float64(s.memStats.Sys))
-	s.updateGauge("TotalAlloc", float64(s.memStats.TotalAlloc))
+	u.updateGauge("Alloc", float64(u.memStats.Alloc))
+	u.updateGauge("BuckHashSys", float64(u.memStats.BuckHashSys))
+	u.updateGauge("Frees", float64(u.memStats.Frees))
+	u.updateGauge("GCCPUFraction", u.memStats.GCCPUFraction)
+	u.updateGauge("GCSys", float64(u.memStats.GCSys))
+	u.updateGauge("HeapAlloc", float64(u.memStats.HeapAlloc))
+	u.updateGauge("HeapIdle", float64(u.memStats.HeapIdle))
+	u.updateGauge("HeapInuse", float64(u.memStats.HeapInuse))
+	u.updateGauge("HeapObjects", float64(u.memStats.HeapObjects))
+	u.updateGauge("HeapReleased", float64(u.memStats.HeapReleased))
+	u.updateGauge("HeapSys", float64(u.memStats.HeapSys))
+	u.updateGauge("LastGC", float64(u.memStats.LastGC))
+	u.updateGauge("Lookups", float64(u.memStats.Lookups))
+	u.updateGauge("MCacheInuse", float64(u.memStats.MCacheInuse))
+	u.updateGauge("MCacheSys", float64(u.memStats.MCacheSys))
+	u.updateGauge("MSpanInuse", float64(u.memStats.MSpanInuse))
+	u.updateGauge("MSpanSys", float64(u.memStats.MSpanSys))
+	u.updateGauge("Mallocs", float64(u.memStats.Mallocs))
+	u.updateGauge("NextGC", float64(u.memStats.NextGC))
+	u.updateGauge("NumForcedGC", float64(u.memStats.NumForcedGC))
+	u.updateGauge("NumGC", float64(u.memStats.NumGC))
+	u.updateGauge("OtherSys", float64(u.memStats.OtherSys))
+	u.updateGauge("PauseTotalNs", float64(u.memStats.PauseTotalNs))
+	u.updateGauge("StackInuse", float64(u.memStats.StackInuse))
+	u.updateGauge("StackSys", float64(u.memStats.StackSys))
+	u.updateGauge("Sys", float64(u.memStats.Sys))
+	u.updateGauge("TotalAlloc", float64(u.memStats.TotalAlloc))
 
-	s.updateCounter("PollCount")
+	u.updateCounter("PollCount")
 
-	s.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
+	u.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
 
 	log.Println("Metrics has been updated.")
 }
 
-func (s *service) updateCounter(id string) {
+func (u *updater) updateCounter(id string) {
 	one := int64(1)
 	m := models.Metrics{
 		ID:    id,
@@ -99,20 +101,20 @@ func (s *service) updateCounter(id string) {
 		Delta: &one, // increment by 1 in `.Update`
 	}
 
-	updErr := s.metrics.Update(context.Background(), m)
+	updErr := u.metrics.Update(m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}
 }
 
-func (s *service) updateGauge(id string, val float64) {
+func (u *updater) updateGauge(id string, val float64) {
 	m := models.Metrics{
 		ID:    id,
 		MType: models.MGauge,
 		Value: &val,
 	}
 
-	updErr := s.metrics.Update(context.Background(), m)
+	updErr := u.metrics.Update(m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}

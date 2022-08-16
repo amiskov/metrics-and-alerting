@@ -20,8 +20,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	terminated := make(chan bool, 1) // buffer of 2 for updater and reporter
 
-	updater := updater.New([]byte(cfg.HashingKey))
-	go updater.Run(ctx, terminated, cfg.PollInterval)
+	updater := updater.New(ctx, []byte(cfg.HashingKey))
+	go updater.Run(terminated, cfg.PollInterval)
 
 	reporter := reporter.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address, cfg.HashingKey)
 	go reporter.ReportWithJSON()

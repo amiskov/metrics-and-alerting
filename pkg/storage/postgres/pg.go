@@ -39,7 +39,7 @@ func New(ctx context.Context, envCfg *config.Config) (*db, func()) {
 // Creates the `metrics` table if not exists.
 func (d *db) Migrate() {
 	// Check if table exists
-	_, err := d.pool.Exec(context.Background(), "select id, type, name, value, delta from metrics where id = 1")
+	_, err := d.pool.Exec(d.ctx, "select id, type, name, value, delta from metrics where id = 1")
 	if err == nil {
 		return
 	}
@@ -73,7 +73,7 @@ func (d *db) Get(metricType string, metricName string) (models.Metrics, error) {
 func (d *db) GetAll() ([]models.Metrics, error) {
 	metrics := make([]models.Metrics, 0, 10)
 
-	rows, err := d.pool.Query(context.Background(), "select type, name, value, delta from metrics")
+	rows, err := d.pool.Query(d.ctx, "select type, name, value, delta from metrics")
 	if err != nil {
 		return metrics, err
 	}
@@ -95,8 +95,8 @@ func (d db) Ping(ctx context.Context) error {
 	return d.pool.Ping(ctx)
 }
 
-func (d *db) Update(ctx context.Context, m models.Metrics) error {
-	_, err := d.pool.Exec(context.Background(), insertMetricQuery, m.MType, m.ID, m.Value, m.Delta)
+func (d *db) Update(m models.Metrics) error {
+	_, err := d.pool.Exec(d.ctx, insertMetricQuery, m.MType, m.ID, m.Value, m.Delta)
 	if err != nil {
 		return fmt.Errorf("failed inserting metric `%#v`. %w", m, err)
 	}

@@ -61,7 +61,7 @@ func (mdb DB) GetAll() ([]models.Metrics, error) {
 func (mdb *DB) BulkUpdate(metrics []models.Metrics) error {
 	// No mutex here, `.Update` is concurrently safe.
 	for _, m := range metrics {
-		updErr := mdb.Update(mdb.ctx, m)
+		updErr := mdb.Update(m)
 		if updErr != nil {
 			return updErr
 		}
@@ -69,7 +69,7 @@ func (mdb *DB) BulkUpdate(metrics []models.Metrics) error {
 	return nil
 }
 
-func (mdb *DB) Update(ctx context.Context, m models.Metrics) error {
+func (mdb *DB) Update(m models.Metrics) error {
 	if m.MType == models.MCounter {
 		existingMetric, err := mdb.Get(m.MType, m.ID)
 		if err == nil {
