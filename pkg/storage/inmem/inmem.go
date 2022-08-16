@@ -2,7 +2,6 @@ package inmem
 
 import (
 	"context"
-	"log"
 	"sort"
 	"sync"
 
@@ -30,11 +29,6 @@ func (mdb DB) Ping(ctx context.Context) error {
 }
 
 func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) {
-	// Handle wrong metric type
-	if metricType != models.MCounter && metricType != models.MGauge {
-		return models.Metrics{}, models.ErrorMetricNotFound
-	}
-
 	mdb.mx.Lock()
 	metric, ok := mdb.data[metricType+metricName]
 	mdb.mx.Unlock()
@@ -64,24 +58,13 @@ func (mdb DB) GetAll() []models.Metrics {
 }
 
 func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {
+	// No mutex here, `.Upsert` is concurrently safe.
 	for _, m := range metrics {
-		// `.Upsert` is concurrently safe
 		updErr := mdb.Upsert(mdb.ctx, m)
 		if updErr != nil {
 			return updErr
 		}
 	}
-
-	// create hashes for running server with current hashing key
-	if len(mdb.hashingKey) != 0 {
-		log.Println("hash is", mdb.hashingKey)
-		// NB: Since tests run each time with a different key we can't store hashes in persistent DB.
-		err := mdb.ActualizeHashes()
-		if err != nil {
-			log.Println("can't update hashes", err)
-		}
-	}
-
 	return nil
 }
 
@@ -91,23 +74,5 @@ func (mdb *DB) Upsert(ctx context.Context, m models.Metrics) error {
 
 	mdb.data[m.MType+m.ID] = m
 
-	return nil
-}
-
-func (mdb *DB) ActualizeHashes() error {
-	mdb.mx.Lock()
-	defer mdb.mx.Unlock()
-
-	if len(mdb.hashingKey) > 0 {
-		for k, m := range mdb.data {
-			hash, err := m.GetHash(mdb.hashingKey)
-			if err != nil {
-				log.Println("can't actualize hash", err)
-				return err
-			}
-			m.Hash = hash
-			mdb.data[k] = m
-		}
-	}
 	return nil
 }

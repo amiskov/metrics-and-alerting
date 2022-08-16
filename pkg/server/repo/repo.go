@@ -4,92 +4,85 @@ import (
 	"context"
 	"crypto/hmac"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 type Storage interface {
+	Ping(context.Context) error
 	Get(metricType string, metricName string) (models.Metrics, error)
 	GetAll() []models.Metrics
-	Ping(context.Context) error
-	BatchUpsert([]models.Metrics) error // TODO: add ctx
 	Upsert(context.Context, models.Metrics) error
+	BatchUpsert([]models.Metrics) error // TODO: add ctx
 }
 
 type Repo struct {
 	mx         *sync.Mutex
-	Ctx        context.Context
+	ctx        context.Context
 	hashingKey []byte
-	DB         Storage
+	db         Storage
 }
 
 func New(ctx context.Context, hashingKey []byte, s Storage) *Repo {
 	repo := &Repo{
 		mx:         new(sync.Mutex),
-		Ctx:        ctx,
+		ctx:        ctx,
 		hashingKey: hashingKey,
-		DB:         s,
+		db:         s,
 	}
 	return repo
+}
+
+func (r *Repo) ActualizeHashes(metrics []models.Metrics) error {
+	if len(r.hashingKey) == 0 {
+		return errors.New("no hashing key, nothing to actualize")
+	}
+
+	for k, m := range metrics {
+		hash, err := m.GetHash(r.hashingKey)
+		if err != nil {
+			return fmt.Errorf("can't actualize hash: %w", err)
+		}
+		m.Hash = hash
+		metrics[k] = m
+	}
+	return nil
 }
 
 func (r Repo) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	return r.DB.Ping(ctx)
+	return r.db.Ping(ctx)
 }
 
 func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) {
-	return r.DB.Get(metricType, metricName)
+	// TODO: add hash here
+	return r.db.Get(metricType, metricName)
 }
 
 // Get all metrics from inmemory storage
 func (r Repo) GetAll() []models.Metrics {
-	return r.DB.GetAll()
+	return r.db.GetAll()
 }
 
 func (r *Repo) Update(m models.Metrics) error {
-	// Check metric type
-	if m.MType != models.MCounter && m.MType != models.MGauge {
-		return models.ErrorUnknownMetricType
+	if err := r.validate(m); err != nil {
+		return err
 	}
 
-	shouldHandleHash := m.Hash != "" && len(r.hashingKey) != 0
-
-	// Check metric hash
-	var hashErr error
-	if shouldHandleHash {
-		hashErr = r.checkHash(m)
-	}
-
-	if hashErr != nil {
-		v := ""
-		if m.MType == models.MCounter {
-			v = fmt.Sprintf("%d", *m.Delta)
-		}
-		if m.MType == models.MGauge {
-			v = fmt.Sprintf("%f", *m.Value)
-		}
-		logger.Log(r.Ctx).Errorf("bad hash `%s` for `%s:%s:%s` (`%s`). Error: %v.\n",
-			m.Hash, m.ID, m.MType, v, string(r.hashingKey), hashErr)
-		return hashErr
-	}
-
-	// For `counter` metrics, update the Delta if metric already exists
-	if m.MType == models.MCounter && m.Delta != nil {
-		err := r.updateCounter(&m)
+	if m.MType == models.MCounter {
+		err := r.updateDelta(&m)
 		if err != nil {
 			return err
 		}
 	}
 
 	// add/replace the metric
-	err := r.DB.Upsert(r.Ctx, m)
+	err := r.db.Upsert(r.ctx, m)
 	if err != nil {
 		return err
 	}
@@ -97,25 +90,29 @@ func (r *Repo) Update(m models.Metrics) error {
 	return nil
 }
 
-func (r *Repo) updateCounter(m *models.Metrics) error {
-	// For `counter` metrics, update the Delta if metric already exists
-	shouldHandleHash := m.Hash != "" && len(r.hashingKey) != 0
-
-	existingMetric, getErr := r.DB.Get(m.MType, m.ID)
-	if getErr == nil && m.MType == models.MCounter && m.Delta != nil {
-		currentDelta := *existingMetric.Delta
-		newDelta := currentDelta + *m.Delta
-		m.Delta = &newDelta
-
-		if shouldHandleHash {
-			h, err := m.GetHash(r.hashingKey)
-			m.Hash = h
-			if err != nil {
-				log.Println("failed updating hash", err)
-				return err
-			}
-		}
+func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
+	for _, m := range metrics {
+		r.Update(m)
 	}
+	return nil
+}
+
+// ============ Not exported
+
+// Updates the Delta of a `counter` metric if metric already exists.
+func (r *Repo) updateDelta(m *models.Metrics) error {
+	existingMetric, err := r.db.Get(m.MType, m.ID)
+	if err != nil { // Metric not exists, nothing to update
+		return nil
+	}
+
+	if existingMetric.Delta == nil || m.Delta == nil {
+		return errors.New("empty Delta for counter metric")
+	}
+
+	currentDelta := *existingMetric.Delta
+	newDelta := currentDelta + *m.Delta
+	m.Delta = &newDelta
 	return nil
 }
 
@@ -150,9 +147,16 @@ func (r *Repo) checkHash(m models.Metrics) error {
 	return nil
 }
 
-func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
-	for _, m := range metrics {
-		r.Update(m)
+func (r *Repo) validate(incomingMetric models.Metrics) error {
+	// Check type
+	if incomingMetric.MType != models.MCounter && incomingMetric.MType != models.MGauge {
+		return models.ErrorUnknownMetricType
 	}
+
+	// Check hash
+	if len(r.hashingKey) != 0 {
+		return r.checkHash(incomingMetric)
+	}
+
 	return nil
 }
