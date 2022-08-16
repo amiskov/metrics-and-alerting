@@ -20,7 +20,7 @@ func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Reques
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
-	writeBody(rw, jbz)
+	writeBody(r.Context(), rw, jbz)
 }
 
 func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if errj != nil {
 		log.Println("Parsing body JSON failed:", errj)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error": "Can't parse body request `+errj.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error": "Can't parse body request `+errj.Error()+`"}`))
 		return
 	}
 
@@ -44,7 +44,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Metric not found. Body: %s. Error: %s.", body, err.Error())
 		rw.WriteHeader(http.StatusNotFound)
-		writeBody(rw, []byte(`{"error": "Can't get metric `+err.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error": "Can't get metric `+err.Error()+`"}`))
 		return
 	}
 
@@ -52,12 +52,12 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error marshaling metric: %+v", err)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error": "`+err.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error": "`+err.Error()+`"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	writeBody(rw, jbz)
+	writeBody(r.Context(), rw, jbz)
 }
 
 func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 	if jErr != nil {
 		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
@@ -80,12 +80,12 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Printf("Error batch update \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	writeBody(rw, []byte(`{"message": "metrics updated"}`))
+	writeBody(r.Context(), rw, []byte(`{"message": "metrics updated"}`))
 }
 
 func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	if jErr != nil {
 		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	}
 
@@ -111,18 +111,18 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	switch {
 	case errors.Is(err, models.ErrorBadMetricFormat):
 		http.Error(rw, err.Error(), http.StatusBadRequest)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
 	case errors.Is(err, models.ErrorMetricNotFound):
 		rw.WriteHeader(http.StatusNotFound)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorMetricNotFound.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorMetricNotFound.Error()+`"}`))
 		return
 	case errors.Is(err, models.ErrorUnknownMetricType):
 		rw.WriteHeader(http.StatusNotImplemented)
-		writeBody(rw, []byte(`{"error":"`+models.ErrorUnknownMetricType.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorUnknownMetricType.Error()+`"}`))
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	writeBody(rw, []byte(`{}`))
+	writeBody(r.Context(), rw, []byte(`{}`))
 }

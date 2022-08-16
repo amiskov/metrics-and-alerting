@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"html/template"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
 var indexTmpl = template.Must(
@@ -43,7 +45,7 @@ func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 		})
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		log.Println("error while executing the template")
+		logger.Log(r.Context()).Errorf("failed executing template: %v", err)
 	}
 }
 
@@ -54,7 +56,7 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricValue, err := api.repo.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
-		writeBody(rw, []byte(err.Error()))
+		writeBody(r.Context(), rw, []byte(err.Error()))
 		return
 	}
 
@@ -67,7 +69,7 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	writeBody(rw, []byte(res))
+	writeBody(r.Context(), rw, []byte(res))
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
@@ -85,7 +87,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	case models.MCounter:
 		delta, err := strconv.ParseInt(urlVal, 10, 64)
 		if err != nil {
-			log.Println(err.Error())
+			logger.Log(r.Context()).Errorf("failed parsing counter delta: %v", err)
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -93,7 +95,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 	case models.MGauge:
 		val, err := strconv.ParseFloat(urlVal, 64)
 		if err != nil {
-			log.Println(err.Error())
+			logger.Log(r.Context()).Errorf("failed parsing gauge value: %v", err)
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -119,8 +121,7 @@ func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
 func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotFound)
-	log.Printf("not found")
-	writeBody(rw, []byte("not found"))
+	writeBody(r.Context(), rw, []byte("not found"))
 }
 
 func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
@@ -133,24 +134,24 @@ func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 
 	if err == nil {
 		rw.WriteHeader(http.StatusOK)
-		writeBody(rw, []byte("DB connected successfully"))
+		writeBody(r.Context(), rw, []byte("DB connected successfully"))
 	} else {
-		log.Println("can't connect to DB:", err)
+		logger.Log(r.Context()).Errorf("can't connect to DB: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
-		writeBody(rw, []byte("DB connection failed"))
+		writeBody(r.Context(), rw, []byte("DB connection failed"))
 	}
 }
 
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 	rw.WriteHeader(http.StatusNotImplemented)
-	log.Printf("not implemented")
-	writeBody(rw, []byte("not implemented"))
+	writeBody(r.Context(), rw, []byte("not implemented"))
 }
 
-func writeBody(rw http.ResponseWriter, body []byte) {
+func writeBody(ctx context.Context, rw http.ResponseWriter, body []byte) {
 	_, werr := rw.Write(body)
 	if werr != nil {
-		log.Println("Failed writing response body:", werr)
+		log.Println()
+		logger.Log(ctx).Errorf("Failed writing response body: %v", werr)
 	}
 }
