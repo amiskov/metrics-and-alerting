@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/hmac"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -77,14 +76,6 @@ func (r *Repo) Update(m models.Metrics) error {
 		return err
 	}
 
-	if m.MType == models.MCounter {
-		err := r.updateDelta(&m)
-		if err != nil {
-			return err
-		}
-	}
-
-	// add/replace the metric
 	err := r.db.Update(r.ctx, m)
 	if err != nil {
 		return err
@@ -96,15 +87,9 @@ func (r *Repo) Update(m models.Metrics) error {
 func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
 	// Reject operation if invalid metric found.
 	// Probably it's better just skip invalid?
-	for k, m := range metrics {
+	for _, m := range metrics {
 		if err := r.validate(m); err != nil {
 			return err
-		}
-		if m.MType == models.MCounter {
-			err := r.updateDelta(&metrics[k])
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -116,23 +101,6 @@ func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
 }
 
 // ============ Not exported
-
-// Updates the Delta of a `counter` metric if metric already exists.
-func (r *Repo) updateDelta(m *models.Metrics) error {
-	existingMetric, err := r.db.Get(m.MType, m.ID)
-	if err != nil { // Metric not exists, nothing to update
-		return nil
-	}
-
-	if existingMetric.Delta == nil || m.Delta == nil {
-		return errors.New("empty Delta for counter metric")
-	}
-
-	currentDelta := *existingMetric.Delta
-	newDelta := currentDelta + *m.Delta
-	m.Delta = &newDelta
-	return nil
-}
 
 func (r *Repo) updateHash(m *models.Metrics) error {
 	if len(r.hashingKey) == 0 {

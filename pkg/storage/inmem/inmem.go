@@ -2,6 +2,7 @@ package inmem
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 
@@ -69,10 +70,22 @@ func (mdb *DB) BulkUpdate(metrics []models.Metrics) error {
 }
 
 func (mdb *DB) Update(ctx context.Context, m models.Metrics) error {
-	mdb.mx.Lock()
-	defer mdb.mx.Unlock()
+	if m.MType == models.MCounter {
+		existingMetric, err := mdb.Get(m.MType, m.ID)
+		if err == nil {
+			if existingMetric.Delta == nil || m.Delta == nil {
+				return errors.New("empty Delta for counter metric")
+			}
 
+			currentDelta := *existingMetric.Delta
+			newDelta := currentDelta + *m.Delta
+			m.Delta = &newDelta
+		}
+	}
+
+	mdb.mx.Lock()
 	mdb.data[m.MType+m.ID] = m
+	mdb.mx.Unlock()
 
 	return nil
 }

@@ -12,9 +12,10 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
+// NB: Counter's Delta updates inside the SQL query
 const insertMetricQuery = `INSERT INTO metrics (type, name, value, delta)
 	VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET
-	value = excluded.value, delta = excluded.delta;`
+	value = excluded.value, delta = metrics.delta + excluded.delta;`
 
 type db struct {
 	pool *pgxpool.Pool
