@@ -13,7 +13,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/repo/file"
 	"github.com/amiskov/metrics-and-alerting/pkg/repo/intervaldump"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
-	"github.com/amiskov/metrics-and-alerting/pkg/storage/pg"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/postgres"
 )
 
 func main() {
@@ -29,9 +29,9 @@ func main() {
 
 	repo := repo.New(ctx, envCfg, storage)
 
-	loggingMiddleware := logger.NewLoggingMiddleware(lggr)
-	metricsAPI := api.New(repo, loggingMiddleware)
+	metricsAPI := api.New(repo, logger.NewLoggingMiddleware(lggr))
 	go metricsAPI.Run(envCfg.Address)
+
 	log.Printf("Serving at http://%s\n", envCfg.Address)
 
 	// Managing user signals
@@ -54,12 +54,12 @@ func main() {
 func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) (repo.Storage, func()) {
 	// Using PostgreSQL
 	if cfg.PgDSN != "" {
-		db, closer := pg.New(ctx, cfg)
+		db, closer := postgres.New(ctx, cfg)
 		db.Migrate()
 
 		go func() {
 			<-ctx.Done()
-			// Nothing to do with Pg termination.
+			// Nothing to do with Postgres termination.
 			terminated <- true
 		}()
 
@@ -71,7 +71,7 @@ func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) 
 	if cfg.StoreFile != "" {
 		fileStorage, closeFile, err := file.New(cfg.StoreFile)
 		if err != nil {
-			log.Println("failed creating file storage", err)
+			logger.Log(ctx).Errorf("failed creating file storage: %s", err.Error())
 		}
 
 		dumper := intervaldump.New(ctx, terminated, inmemory, fileStorage, cfg)
@@ -79,7 +79,7 @@ func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) 
 
 		return inmemory, func() {
 			if err := closeFile(); err != nil {
-				log.Println("failed closing file", cfg.StoreFile)
+				logger.Log(ctx).Errorf("failed closing file `%s`", cfg.StoreFile)
 			}
 		}
 	}
