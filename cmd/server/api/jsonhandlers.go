@@ -5,17 +5,17 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
 func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Request) {
 	jbz, err := json.Marshal(api.repo.GetAll())
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		log.Println("Error while parsing all metrics JSON.")
+		logger.Log(r.Context()).Errorf("error while parsing all metrics JSON: %v", err)
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
@@ -26,23 +26,23 @@ func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Reques
 func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 
-	body, errBody := ioutil.ReadAll(r.Body)
-	if errBody != nil {
-		log.Println("Error parsing body.", body, errBody)
+	body, errRead := ioutil.ReadAll(r.Body)
+	if errRead != nil {
+		logger.Log(r.Context()).Errorf("error reading request body: %v", errRead)
 	}
 
 	var reqMetric models.Metrics
-	errj := json.Unmarshal(body, &reqMetric)
-	if errj != nil {
-		log.Println("Parsing body JSON failed:", errj)
+	errJSON := json.Unmarshal(body, &reqMetric)
+	if errJSON != nil {
+		logger.Log(r.Context()).Errorf("failed parsing request body JSON: %v", errJSON)
 		rw.WriteHeader(http.StatusBadRequest)
-		writeBody(r.Context(), rw, []byte(`{"error": "Can't parse body request `+errj.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error": "Can't parse body request `+errJSON.Error()+`"}`))
 		return
 	}
 
 	foundMetric, err := api.repo.Get(reqMetric.MType, reqMetric.ID)
 	if err != nil {
-		log.Printf("Metric not found. Body: %s. Error: %s.", body, err.Error())
+		logger.Log(r.Context()).Errorf("Metric not found. Body: %s. Error: %v.", body, err)
 		rw.WriteHeader(http.StatusNotFound)
 		writeBody(r.Context(), rw, []byte(`{"error": "Can't get metric `+err.Error()+`"}`))
 		return
@@ -50,7 +50,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 
 	jbz, err := json.Marshal(foundMetric)
 	if err != nil {
-		log.Printf("Error marshaling metric: %+v", err)
+		logger.Log(r.Context()).Errorf("Error marshaling metric: %+v", err)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error": "`+err.Error()+`"}`))
 		return
@@ -63,14 +63,14 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Request) {
 	body, berr := io.ReadAll(r.Body)
 	if berr != nil {
-		log.Println("can't read request body")
+		logger.Log(r.Context()).Errorf("can't read request body: %+v", berr)
 		return
 	}
 
 	metrics := []models.Metrics{}
 	jErr := json.Unmarshal(body, &metrics)
 	if jErr != nil {
-		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
+		logger.Log(r.Context()).Errorf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
@@ -78,7 +78,7 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 
 	err := api.repo.BatchUpsert(metrics)
 	if err != nil {
-		log.Printf("Error batch update \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
+		logger.Log(r.Context()).Errorf("batch update failed \n`%s`\n error: %v. URL is: %s", body, err, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
@@ -92,16 +92,15 @@ func (api *metricsAPI) upsertMetricJSON(rw http.ResponseWriter, r *http.Request)
 	rw.Header().Set("Content-Type", "application/json")
 
 	body, berr := io.ReadAll(r.Body)
-	log.Println("upsert Body is", string(body))
 	if berr != nil {
-		log.Println("can't read request body")
+		logger.Log(r.Context()).Errorf("can't read request body: %v", berr)
 		return
 	}
 
 	metricData := models.Metrics{}
 	jErr := json.Unmarshal(body, &metricData)
 	if jErr != nil {
-		log.Printf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
+		logger.Log(r.Context()).Errorf("Error while decoding \n`%s`\n error: %v. URL is: %s", body, jErr, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return

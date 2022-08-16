@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -149,9 +148,8 @@ func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {
 }
 
 func writeBody(ctx context.Context, rw http.ResponseWriter, body []byte) {
-	_, werr := rw.Write(body)
-	if werr != nil {
-		log.Println()
-		logger.Log(ctx).Errorf("Failed writing response body: %v", werr)
+	_, err := rw.Write(body)
+	if err != nil {
+		logger.Log(ctx).Errorf("Failed writing response body: %v", err)
 	}
 }
