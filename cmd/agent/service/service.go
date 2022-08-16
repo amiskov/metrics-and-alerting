@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/internal/models"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo/inmem"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
 type service struct {

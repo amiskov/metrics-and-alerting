@@ -10,7 +10,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/repo"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo/inmem"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
 func TestUpdateMetric(t *testing.T) {
