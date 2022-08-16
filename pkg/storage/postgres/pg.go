@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
-	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 type store struct {

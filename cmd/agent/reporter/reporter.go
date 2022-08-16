@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 const (

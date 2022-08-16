@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 type DB struct {

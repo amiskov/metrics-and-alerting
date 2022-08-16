@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Request) {
