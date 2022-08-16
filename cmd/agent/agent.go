@@ -7,8 +7,8 @@ import (
 	"syscall"
 
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/config"
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/reporter"
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/updater"
+	"github.com/amiskov/metrics-and-alerting/pkg/agent/reporter"
+	"github.com/amiskov/metrics-and-alerting/pkg/agent/updater"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
