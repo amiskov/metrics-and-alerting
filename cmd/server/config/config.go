@@ -15,6 +15,7 @@ type Config struct {
 	Restore       bool
 	HashingKey    string
 	PgDSN         string
+	LogLevel      string
 }
 
 func Parse() *Config {
@@ -24,6 +25,7 @@ func Parse() *Config {
 		Restore:       true,
 		StoreInterval: 300 * time.Second,
 		StoreFile:     "/tmp/devops-metrics-db.json",
+		LogLevel:      "warning",
 	}
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()
@@ -37,6 +39,7 @@ func (cfg *Config) updateFromFlags() {
 	flagStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
 	flagHashingKey := flag.String("k", cfg.HashingKey, "Hashing key.")
 	flagPgDSN := flag.String("d", cfg.PgDSN, "Postgres DSN.")
+	flagLogLevel := flag.String("ll", cfg.PgDSN, "Minimal logging level: debug, info, warn, error, dpanic, panic, fatal.")
 
 	flag.Parse()
 
@@ -46,6 +49,7 @@ func (cfg *Config) updateFromFlags() {
 	cfg.StoreFile = *flagStoreFile
 	cfg.HashingKey = *flagHashingKey
 	cfg.PgDSN = *flagPgDSN // priority is higher than `flagStoreFile`
+	cfg.LogLevel = *flagLogLevel
 }
 
 func (cfg *Config) updateFromEnv() {
@@ -74,5 +78,8 @@ func (cfg *Config) updateFromEnv() {
 	}
 	if dsn, ok := os.LookupEnv("DATABASE_DSN"); ok {
 		cfg.PgDSN = dsn
+	}
+	if ll, ok := os.LookupEnv("LOG_LEVEL"); ok {
+		cfg.LogLevel = ll
 	}
 }

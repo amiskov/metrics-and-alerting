@@ -10,6 +10,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -88,7 +89,8 @@ func TestUpdateMetric(t *testing.T) {
 			}
 			storage := inmem.New(ctx, []byte(envCfg.HashingKey))
 			repo := repo.New(ctx, envCfg, storage)
-			metricsAPI := api.New(repo)
+			loggingMiddleware := logger.NewLoggingMiddleware(logger.Run("debug"))
+			metricsAPI := api.New(repo, loggingMiddleware)
 			metricsAPI.Router.ServeHTTP(w, request)
 
 			res := w.Result()

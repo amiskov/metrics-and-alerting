@@ -13,11 +13,14 @@ import (
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/file"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/inmem"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/repo/intervaldump"
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	envCfg := config.Parse()
+
+	lggr := logger.Run(envCfg.LogLevel)
 
 	terminated := make(chan bool)
 
@@ -26,7 +29,8 @@ func main() {
 
 	repo := repo.New(ctx, envCfg, storage)
 
-	metricsAPI := api.New(repo)
+	loggingMiddleware := logger.NewLoggingMiddleware(lggr)
+	metricsAPI := api.New(repo, loggingMiddleware)
 	go metricsAPI.Run(envCfg.Address)
 	log.Printf("Serving at http://%s\n", envCfg.Address)
 

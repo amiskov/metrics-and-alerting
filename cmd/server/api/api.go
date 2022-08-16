@@ -24,12 +24,18 @@ type metricsAPI struct {
 	repo   Repo
 }
 
-func New(s Repo) *metricsAPI {
+type LoggerMiddleware interface {
+	SetupTracing(http.Handler) http.Handler
+	SetupLogging(http.Handler) http.Handler
+	AccessLog(http.Handler) http.Handler
+}
+
+func New(s Repo, l LoggerMiddleware) *metricsAPI {
 	api := &metricsAPI{
 		Router: chi.NewRouter(),
 		repo:   s,
 	}
-	api.mountHandlers()
+	api.mountHandlers(l)
 	return api
 }
 
