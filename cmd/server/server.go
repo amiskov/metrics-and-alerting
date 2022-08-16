@@ -6,12 +6,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
+	"github.com/amiskov/metrics-and-alerting/pkg/backup"
+	"github.com/amiskov/metrics-and-alerting/pkg/backup/file"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo/file"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo/intervaldump"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/api"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/repo"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/postgres"
 )
@@ -27,7 +27,7 @@ func main() {
 	storage, closeStorage := initStorage(ctx, terminated, envCfg)
 	defer closeStorage()
 
-	repo := repo.New(ctx, envCfg, storage)
+	repo := repo.New(ctx, []byte(envCfg.HashingKey), storage)
 
 	metricsAPI := api.New(repo, logger.NewLoggingMiddleware(lggr))
 	go metricsAPI.Run(envCfg.Address)
@@ -59,7 +59,7 @@ func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) 
 
 		go func() {
 			<-ctx.Done()
-			// Nothing to do with Postgres termination.
+			// PostgreSQL will be terminated with `closer`.
 			terminated <- true
 		}()
 
@@ -67,6 +67,7 @@ func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) 
 	}
 
 	inmemory := inmem.New(ctx, []byte(cfg.HashingKey))
+	closer := func() {}
 
 	if cfg.StoreFile != "" {
 		fileStorage, closeFile, err := file.New(cfg.StoreFile)
@@ -74,15 +75,15 @@ func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) 
 			logger.Log(ctx).Errorf("failed creating file storage: %s", err.Error())
 		}
 
-		dumper := intervaldump.New(ctx, terminated, inmemory, fileStorage, cfg)
-		go dumper.Run(cfg.Restore, cfg.StoreInterval)
+		backup := backup.New(ctx, terminated, inmemory, fileStorage)
+		go backup.Run(cfg.Restore, cfg.StoreInterval)
 
-		return inmemory, func() {
+		closer = func() {
 			if err := closeFile(); err != nil {
 				logger.Log(ctx).Errorf("failed closing file `%s`", cfg.StoreFile)
 			}
 		}
 	}
 
-	return inmemory, func() {}
+	return inmemory, closer
 }

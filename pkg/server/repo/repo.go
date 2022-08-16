@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
@@ -28,11 +27,11 @@ type Repo struct {
 	DB         Storage
 }
 
-func New(ctx context.Context, cfg *config.Config, s Storage) *Repo {
+func New(ctx context.Context, hashingKey []byte, s Storage) *Repo {
 	repo := &Repo{
 		mx:         new(sync.Mutex),
 		Ctx:        ctx,
-		hashingKey: []byte(cfg.HashingKey),
+		hashingKey: hashingKey,
 		DB:         s,
 	}
 	return repo

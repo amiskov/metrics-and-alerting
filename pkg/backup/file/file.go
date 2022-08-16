@@ -31,7 +31,7 @@ func New(filePath string) (*fileStorage, closer, error) {
 }
 
 // Decodes JSON from the file and writes it to the given `MetricsDB`.
-func (fs *fileStorage) Restore() ([]models.Metrics, error) {
+func (fs *fileStorage) ReadAll() ([]models.Metrics, error) {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
 	err := dec.Decode(&storedMetrics)
@@ -64,9 +64,5 @@ func (fs *fileStorage) Dump(ctx context.Context, metrics []models.Metrics) error
 
 	log.Printf("Metrics dumped into file `%s`.\n", fs.file.Name())
 
-	return nil
-}
-
-func (fs fileStorage) Ping(ctx context.Context) error {
 	return nil
 }

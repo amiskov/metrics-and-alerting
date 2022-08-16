@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
-	"github.com/amiskov/metrics-and-alerting/pkg/repo"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/api"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/repo"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
@@ -87,8 +87,11 @@ func TestUpdateMetric(t *testing.T) {
 				Restore:    false,
 				HashingKey: "secret",
 			}
-			storage := inmem.New(ctx, []byte(envCfg.HashingKey))
-			repo := repo.New(ctx, envCfg, storage)
+			hashingKey := []byte(envCfg.HashingKey)
+
+			storage := inmem.New(ctx, hashingKey)
+			repo := repo.New(ctx, hashingKey, storage)
+
 			loggingMiddleware := logger.NewLoggingMiddleware(logger.Run("debug"))
 			metricsAPI := api.New(repo, loggingMiddleware)
 			metricsAPI.Router.ServeHTTP(w, request)

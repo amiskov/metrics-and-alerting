@@ -1,4 +1,5 @@
-package intervaldump
+// Package `backup` can dump metrics intervally from `sourcer` to `storer`.
+package backup
 
 import (
 	"context"
@@ -6,13 +7,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/config"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 type (
 	// `worker` is responsible for interval saving and graceful termination.
-	// It intervally dumps data from `source` to `storage` with `ticker`.
+	// It dumps metrics intervally from a `sourcer` to a `storer`.
 	worker struct {
 		ctx        context.Context
 		terminated chan bool
@@ -29,29 +29,18 @@ type (
 
 	// Persistent storage
 	storer interface {
-		Restore() ([]models.Metrics, error)
+		ReadAll() ([]models.Metrics, error)
 		Dump(context.Context, []models.Metrics) error
 	}
 )
 
-func New(ctx context.Context, terminated chan bool, source sourcer, storage storer, cfg *config.Config) *worker {
-	w := &worker{
+func New(ctx context.Context, terminated chan bool, source sourcer, storage storer) *worker {
+	return &worker{
 		ctx:        ctx,
 		terminated: terminated,
-		ticker:     *time.NewTicker(cfg.StoreInterval),
 		source:     source,
 		storage:    storage,
 	}
-
-	// Restore metrics from persistent storage or create an empty inmemory DB
-	if cfg.Restore {
-		err := w.Restore()
-		if err != nil {
-			log.Println("can't restore metrics from file", cfg.StoreFile)
-		}
-	}
-
-	return w
 }
 
 func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
@@ -65,14 +54,16 @@ func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 
 	// Interval saving & restoring from a file
 	if storeInterval > 0 {
+		w.ticker = *time.NewTicker(storeInterval)
 		go w.DumpPeriodically()
 	}
 
 	go w.HandleTermination()
 }
 
+// Reads metrics from persistent `storer` and loads into `sourcer`.
 func (w worker) Restore() error {
-	restoredMetrics, err := w.storage.Restore()
+	restoredMetrics, err := w.storage.ReadAll()
 	if err != nil {
 		return fmt.Errorf("can't restore data from storage: %w", err)
 	}
@@ -85,7 +76,7 @@ func (w worker) Restore() error {
 	return nil
 }
 
-// Interval saving to persistent storage.
+// Runs interval timer for saving metrics to persistent storage.
 func (w worker) DumpPeriodically() {
 	defer w.ticker.Stop()
 	for range w.ticker.C {
@@ -96,7 +87,7 @@ func (w worker) DumpPeriodically() {
 	}
 }
 
-// Handle program termination: save data and stop ticker if it's running.
+// Handles program termination: stops interval saving and dumps the latest metrics snapshot.
 func (w worker) HandleTermination() {
 	<-w.ctx.Done()
 	w.ticker.Stop()
