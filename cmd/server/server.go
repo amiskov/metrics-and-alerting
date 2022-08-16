@@ -12,8 +12,8 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/repo"
 	"github.com/amiskov/metrics-and-alerting/pkg/repo/file"
 	"github.com/amiskov/metrics-and-alerting/pkg/repo/intervaldump"
-	"github.com/amiskov/metrics-and-alerting/pkg/storage/db"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/pg"
 )
 
 func main() {
@@ -54,7 +54,7 @@ func main() {
 func initStorage(ctx context.Context, terminated chan bool, cfg *config.Config) (repo.Storage, func()) {
 	// Using PostgreSQL
 	if cfg.PgDSN != "" {
-		db, closer := db.New(ctx, cfg)
+		db, closer := pg.New(ctx, cfg)
 		db.Migrate()
 
 		go func() {
