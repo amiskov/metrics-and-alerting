@@ -1,4 +1,4 @@
-package api
+package reporter
 
 import (
 	"log"
@@ -10,7 +10,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-func (a *api) sendMetrics() {
+func (a *reporter) sendMetrics() {
 	var wg sync.WaitGroup
 
 	for _, m := range a.updater.GetMetrics() {

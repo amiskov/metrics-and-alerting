@@ -1,4 +1,5 @@
-package service
+// Package updater creates a snapshot of a running service with a bunch of metrics.
+package updater
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package api
+package reporter
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/internal/models"
 )
 
-func (a *api) sendMetricsJSON() {
+func (a *reporter) sendMetricsJSON() {
 	var wg sync.WaitGroup
 
 	for _, m := range a.updater.GetMetrics() {

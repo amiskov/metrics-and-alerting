@@ -1,4 +1,5 @@
-package api
+// Package sends metrics over HTTP as JSON or URL params.
+package reporter
 
 import (
 	"context"
@@ -13,20 +14,20 @@ const (
 	withURL
 )
 
-type Service interface {
+type updater interface {
 	GetMetrics() []models.Metrics
 }
 
-type api struct {
-	updater        Service
+type reporter struct {
+	updater        updater
 	ctx            context.Context
 	done           chan bool
 	reportInterval time.Duration
 	serverURL      string
 }
 
-func New(ctx context.Context, s Service, done chan bool, reportInterval time.Duration, address string) *api {
-	return &api{
+func New(ctx context.Context, s updater, done chan bool, reportInterval time.Duration, address string) *reporter {
+	return &reporter{
 		updater:        s,
 		ctx:            ctx,
 		done:           done,
@@ -35,15 +36,15 @@ func New(ctx context.Context, s Service, done chan bool, reportInterval time.Dur
 	}
 }
 
-func (a *api) ReportWithURLParams() {
+func (a *reporter) ReportWithURLParams() {
 	a.runReporter(withURL)
 }
 
-func (a *api) ReportWithJSON() {
+func (a *reporter) ReportWithJSON() {
 	a.runReporter(withJSON)
 }
 
-func (a *api) runReporter(apiType int) {
+func (a *reporter) runReporter(apiType int) {
 	ticker := time.NewTicker(a.reportInterval)
 
 	go func() {

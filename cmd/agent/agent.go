@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/api"
 	"github.com/amiskov/metrics-and-alerting/cmd/agent/config"
-	"github.com/amiskov/metrics-and-alerting/cmd/agent/service"
+	"github.com/amiskov/metrics-and-alerting/cmd/agent/reporter"
+	"github.com/amiskov/metrics-and-alerting/cmd/agent/updater"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 )
 
@@ -20,10 +20,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	terminated := make(chan bool, 1) // buffer of 2 for updater and reporter
 
-	updater := service.New([]byte(cfg.HashingKey))
+	updater := updater.New([]byte(cfg.HashingKey))
 	go updater.Run(ctx, terminated, cfg.PollInterval)
 
-	reporter := api.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address)
+	reporter := reporter.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address)
 	go reporter.ReportWithJSON()
 
 	log.Printf("Agent started with config %+v\n.", cfg)
