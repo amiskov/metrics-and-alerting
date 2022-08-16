@@ -40,7 +40,7 @@ func (api *metricsAPI) mountHandlers(l LoggerMiddleware) {
 
 	api.Router.Route("/", func(r chi.Router) {
 		r.Get("/", api.getMetricsList)
-		r.Post("/updates/", api.batchUpsertMetrics)
+		r.Post("/updates/", api.bulkUpdateMetrics)
 		r.Get("/ping", api.ping)
 		r.Get("/j", api.getMetricsListJSON)
 		r.Post("/*", handleNotFound)

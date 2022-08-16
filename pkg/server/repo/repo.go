@@ -16,8 +16,8 @@ type Storage interface {
 	Ping(context.Context) error
 	Get(metricType string, metricName string) (models.Metrics, error)
 	GetAll() ([]models.Metrics, error)
-	Upsert(context.Context, models.Metrics) error
-	BatchUpsert([]models.Metrics) error // TODO: add ctx
+	Update(context.Context, models.Metrics) error
+	BulkUpdate([]models.Metrics) error
 }
 
 type Repo struct {
@@ -85,7 +85,7 @@ func (r *Repo) Update(m models.Metrics) error {
 	}
 
 	// add/replace the metric
-	err := r.db.Upsert(r.ctx, m)
+	err := r.db.Update(r.ctx, m)
 	if err != nil {
 		return err
 	}
@@ -93,10 +93,25 @@ func (r *Repo) Update(m models.Metrics) error {
 	return nil
 }
 
-func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
-	for _, m := range metrics {
-		r.Update(m)
+func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
+	// Reject operation if invalid metric found.
+	// Probably it's better just skip invalid?
+	for k, m := range metrics {
+		if err := r.validate(m); err != nil {
+			return err
+		}
+		if m.MType == models.MCounter {
+			err := r.updateDelta(&metrics[k])
+			if err != nil {
+				return err
+			}
+		}
 	}
+
+	if err := r.db.BulkUpdate(metrics); err != nil {
+		return fmt.Errorf("repo: bulk update failed: %w", err)
+	}
+
 	return nil
 }
 

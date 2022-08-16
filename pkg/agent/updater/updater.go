@@ -117,7 +117,7 @@ func (s *service) updateCounter(id string) {
 	}
 
 	// add/replace metric in storage
-	updErr := s.metrics.Upsert(context.Background(), m)
+	updErr := s.metrics.Update(context.Background(), m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}
@@ -138,7 +138,7 @@ func (s *service) updateGauge(id string, val float64) {
 		}
 	}
 
-	updErr := s.metrics.Upsert(context.Background(), m)
+	updErr := s.metrics.Update(context.Background(), m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
 	}

@@ -24,7 +24,7 @@ type (
 
 	// Source of data to dump and destination to restore
 	sourcer interface {
-		BatchUpsert([]models.Metrics) error
+		BulkUpdate([]models.Metrics) error
 		GetAll() ([]models.Metrics, error)
 	}
 
@@ -92,7 +92,7 @@ func (w worker) restore() error {
 		return fmt.Errorf("can't restore data from storage: %w", err)
 	}
 
-	errR := w.source.BatchUpsert(restoredMetrics)
+	errR := w.source.BulkUpdate(restoredMetrics)
 	if errR != nil {
 		return fmt.Errorf("can't restore data from storage: %w", err)
 	}

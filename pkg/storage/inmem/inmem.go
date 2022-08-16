@@ -57,10 +57,10 @@ func (mdb DB) GetAll() ([]models.Metrics, error) {
 	return metrics, nil
 }
 
-func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {
-	// No mutex here, `.Upsert` is concurrently safe.
+func (mdb *DB) BulkUpdate(metrics []models.Metrics) error {
+	// No mutex here, `.Update` is concurrently safe.
 	for _, m := range metrics {
-		updErr := mdb.Upsert(mdb.ctx, m)
+		updErr := mdb.Update(mdb.ctx, m)
 		if updErr != nil {
 			return updErr
 		}
@@ -68,7 +68,7 @@ func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {
 	return nil
 }
 
-func (mdb *DB) Upsert(ctx context.Context, m models.Metrics) error {
+func (mdb *DB) Update(ctx context.Context, m models.Metrics) error {
 	mdb.mx.Lock()
 	defer mdb.mx.Unlock()
 

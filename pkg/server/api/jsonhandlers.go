@@ -69,7 +69,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	writeBody(r.Context(), rw, jbz)
 }
 
-func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Request) {
+func (api *metricsAPI) bulkUpdateMetrics(rw http.ResponseWriter, r *http.Request) {
 	body, berr := io.ReadAll(r.Body)
 	if berr != nil {
 		logger.Log(r.Context()).Errorf("can't read request body: %+v", berr)
@@ -85,9 +85,9 @@ func (api *metricsAPI) batchUpsertMetrics(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err := api.repo.BatchUpsert(metrics)
+	err := api.repo.BulkUpdate(metrics)
 	if err != nil {
-		logger.Log(r.Context()).Errorf("batch update failed \n`%s`\n error: %v. URL is: %s", body, err, r.URL)
+		logger.Log(r.Context()).Errorf("bulk update failed \n`%s`\n error: %v. URL is: %s", body, err, r.URL)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return
