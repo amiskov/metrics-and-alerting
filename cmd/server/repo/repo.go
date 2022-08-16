@@ -103,7 +103,8 @@ func (r *Repo) updateCounter(m *models.Metrics) error {
 	existingMetric, getErr := r.DB.Get(m.MType, m.ID)
 	if getErr == nil && m.MType == models.MCounter && m.Delta != nil {
 		currentDelta := *existingMetric.Delta
-		*m.Delta += currentDelta
+		newDelta := currentDelta + *m.Delta
+		m.Delta = &newDelta
 
 		if shouldHandleHash {
 			h, err := m.GetHash(r.hashingKey)
@@ -149,21 +150,8 @@ func (r *Repo) checkHash(m models.Metrics) error {
 }
 
 func (r *Repo) BatchUpsert(metrics []models.Metrics) error {
-	for idx, m := range metrics {
-		// TODO: check types and hashes. See `Update`, create separate functions for metrics validation.
-		if m.MType == models.MCounter {
-			err := r.updateCounter(&metrics[idx])
-			if err != nil {
-				return err
-			}
-		}
+	for _, m := range metrics {
+		r.Update(m)
 	}
-
-	// add/replace metrics
-	err := r.DB.BatchUpsert(metrics)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
