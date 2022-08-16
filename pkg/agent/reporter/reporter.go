@@ -61,20 +61,23 @@ func (r *reporter) runReporter(apiType int) {
 
 	for range ticker.C {
 		metrics, err := r.updater.GetMetrics()
-
-		// Actualize hashes
-		for k, m := range metrics {
-			hash, hErr := m.GetHash(r.hashingKey)
-			if hErr != nil {
-				logger.Log(r.ctx).Error("reporter: failed creating hash %v", hErr)
-				return
-			}
-			metrics[k].Hash = hash
-		}
 		if err != nil {
 			logger.Log(r.ctx).Errorf("can't get metrics: %v", err)
 			return
 		}
+
+		// Actualize hashes
+		if len(r.hashingKey) > 0 {
+			for k, m := range metrics {
+				hash, hErr := m.GetHash(r.hashingKey)
+				if hErr != nil {
+					logger.Log(r.ctx).Error("reporter: failed creating hash %v", hErr)
+					return
+				}
+				metrics[k].Hash = hash
+			}
+		}
+
 		switch apiType {
 		case withJSON:
 			r.sendMetricsJSON(metrics)
