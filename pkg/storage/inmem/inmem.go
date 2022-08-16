@@ -41,7 +41,7 @@ func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) 
 }
 
 // Get all metrics from inmemory storage
-func (mdb DB) GetAll() []models.Metrics {
+func (mdb DB) GetAll() ([]models.Metrics, error) {
 	mdb.mx.Lock()
 	defer mdb.mx.Unlock()
 
@@ -54,7 +54,7 @@ func (mdb DB) GetAll() []models.Metrics {
 		return metrics[i].ID < metrics[j].ID
 	})
 
-	return metrics
+	return metrics, nil
 }
 
 func (mdb *DB) BatchUpsert(metrics []models.Metrics) error {

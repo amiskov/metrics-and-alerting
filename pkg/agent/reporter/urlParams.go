@@ -3,46 +3,40 @@ package reporter
 import (
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
-func (a *reporter) sendMetrics() {
+func (r *reporter) sendMetrics(metrics []models.Metrics) {
 	var wg sync.WaitGroup
 
-	for _, m := range a.updater.GetMetrics() {
+	for _, m := range metrics {
 		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			var val string
-			switch m.MType {
-			case models.MGauge:
-				val = strconv.FormatFloat(*m.Value, 'f', 3, 64)
-			case models.MCounter:
-				log.Printf("%v (%v): %+v\n", m.ID, m.MType, m.Value)
-				val = strconv.FormatInt(*m.Delta, 10)
-			default:
-				log.Printf("Unknown metric type: %#v", m)
-			}
-			sendMetric(a.serverURL, m.MType, m.ID, val)
+			r.sendMetric(m)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func sendMetric(sendURL string, mType string, mName string, mValue string) {
-	postURL := sendURL + "/update/" + mType + "/" + mName + "/" + mValue
-	log.Println("Sending to:", postURL)
-	contentType := "Content-Type: text/plain"
+func (r reporter) sendMetric(m models.Metrics) {
+	val, err := m.GetStrVal()
+	if err != nil {
+		logger.Log(r.ctx).Error("bad metric format: %#v", m)
+		return
+	}
+
+	postURL := r.serverURL + "/update/" + m.MType + "/" + m.ID + "/" + val
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
-	resp, errPost := client.Post(postURL, contentType, nil)
+	resp, errPost := client.Post(postURL, "Content-Type: text/plain", nil)
 	if errPost != nil {
 		log.Printf("Failed to send metric. URL: `%s`. Error: %v\n", postURL, errPost)
 		return

@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
@@ -15,7 +16,7 @@ const (
 )
 
 type updater interface {
-	GetMetrics() []models.Metrics
+	GetMetrics() ([]models.Metrics, error)
 }
 
 type reporter struct {
@@ -36,30 +37,35 @@ func New(ctx context.Context, s updater, done chan bool, reportInterval time.Dur
 	}
 }
 
-func (a *reporter) ReportWithURLParams() {
-	a.runReporter(withURL)
+func (r *reporter) ReportWithURLParams() {
+	r.runReporter(withURL)
 }
 
-func (a *reporter) ReportWithJSON() {
-	a.runReporter(withJSON)
+func (r *reporter) ReportWithJSON() {
+	r.runReporter(withJSON)
 }
 
-func (a *reporter) runReporter(apiType int) {
-	ticker := time.NewTicker(a.reportInterval)
+func (r *reporter) runReporter(apiType int) {
+	ticker := time.NewTicker(r.reportInterval)
 
 	go func() {
-		<-a.ctx.Done()
+		<-r.ctx.Done()
 		ticker.Stop()
 		log.Println("Metrics report stopped.")
-		a.done <- true
+		r.done <- true
 	}()
 
 	for range ticker.C {
+		metrics, err := r.updater.GetMetrics()
+		if err != nil {
+			logger.Log(r.ctx).Errorf("can't get metrics: %v", err)
+			return
+		}
 		switch apiType {
 		case withJSON:
-			a.sendMetricsJSON()
+			r.sendMetricsJSON(metrics)
 		case withURL:
-			a.sendMetrics()
+			r.sendMetrics(metrics)
 		}
 	}
 }

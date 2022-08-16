@@ -11,23 +11,23 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
-func (a *reporter) sendMetricsJSON() {
+func (r *reporter) sendMetricsJSON(metrics []models.Metrics) {
 	var wg sync.WaitGroup
 
-	for _, m := range a.updater.GetMetrics() {
+	for _, m := range metrics {
 		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetricJSON(a.serverURL, m)
+			r.sendMetricJSON(m)
 		}()
 	}
 
 	wg.Wait()
 }
 
-func sendMetricJSON(sendURL string, m models.Metrics) {
-	postURL := sendURL + "/update/"
+func (r reporter) sendMetricJSON(m models.Metrics) {
+	postURL := r.serverURL + "/update/"
 	contentType := "Content-Type: application/json"
 
 	client := http.Client{}

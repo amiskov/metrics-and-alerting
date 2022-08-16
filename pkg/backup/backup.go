@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
@@ -24,7 +25,7 @@ type (
 	// Source of data to dump and destination to restore
 	sourcer interface {
 		BatchUpsert([]models.Metrics) error
-		GetAll() []models.Metrics
+		GetAll() ([]models.Metrics, error)
 	}
 
 	// Persistent storage
@@ -45,7 +46,7 @@ func New(ctx context.Context, terminated chan bool, source sourcer, storage stor
 
 func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 	if shouldRestore {
-		err := w.Restore()
+		err := w.restore()
 		if err != nil {
 			log.Println("can't restore from a file", err)
 		}
@@ -61,8 +62,31 @@ func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 	go w.HandleTermination()
 }
 
+// Runs interval timer for saving metrics to persistent storage.
+func (w worker) DumpPeriodically() {
+	defer w.ticker.Stop()
+	for range w.ticker.C {
+		if err := w.save(); err != nil {
+			logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
+		}
+		log.Println("Successfully saved to file.")
+	}
+}
+
+// Handles program termination: stops interval saving and dumps the latest metrics snapshot.
+func (w worker) HandleTermination() {
+	<-w.ctx.Done()
+	w.ticker.Stop()
+	log.Println("Saving timer stopped.")
+	if err := w.save(); err != nil {
+		logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
+	}
+	log.Println("Successfully saved to file. Terminating.")
+	w.terminated <- true
+}
+
 // Reads metrics from persistent `storer` and loads into `sourcer`.
-func (w worker) Restore() error {
+func (w worker) restore() error {
 	restoredMetrics, err := w.storage.ReadAll()
 	if err != nil {
 		return fmt.Errorf("can't restore data from storage: %w", err)
@@ -76,24 +100,13 @@ func (w worker) Restore() error {
 	return nil
 }
 
-// Runs interval timer for saving metrics to persistent storage.
-func (w worker) DumpPeriodically() {
-	defer w.ticker.Stop()
-	for range w.ticker.C {
-		if err := w.storage.Dump(w.ctx, w.source.GetAll()); err != nil {
-			log.Println("interval saving to persistent storage failed:", err)
-		}
-		log.Println("dumped into file")
+func (w worker) save() error {
+	metrics, err := w.source.GetAll()
+	if err != nil {
+		return fmt.Errorf("failed getting metrics: %w", err)
 	}
-}
-
-// Handles program termination: stops interval saving and dumps the latest metrics snapshot.
-func (w worker) HandleTermination() {
-	<-w.ctx.Done()
-	w.ticker.Stop()
-	log.Println("Saving timer stopped.")
-	if err := w.storage.Dump(w.ctx, w.source.GetAll()); err != nil {
-		log.Println("failed saving to persistent storage:", err)
+	if err := w.storage.Dump(w.ctx, metrics); err != nil {
+		return fmt.Errorf("failed saving to persistent storage: %w", err)
 	}
-	w.terminated <- true
+	return nil
 }

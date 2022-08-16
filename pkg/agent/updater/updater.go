@@ -45,7 +45,7 @@ func (s *service) Run(ctx context.Context, done chan bool, pollInterval time.Dur
 	}
 }
 
-func (s *service) GetMetrics() []models.Metrics {
+func (s *service) GetMetrics() ([]models.Metrics, error) {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 	return s.metrics.GetAll()

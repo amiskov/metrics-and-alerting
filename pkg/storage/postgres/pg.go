@@ -13,9 +13,8 @@ import (
 )
 
 type store struct {
-	db         *pgxpool.Pool
-	ctx        context.Context
-	hashingKey []byte
+	db  *pgxpool.Pool
+	ctx context.Context
 }
 
 func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
@@ -26,9 +25,8 @@ func New(ctx context.Context, envCfg *config.Config) (*store, func()) {
 	}
 
 	s := &store{
-		db:         conn,
-		ctx:        ctx,
-		hashingKey: []byte(envCfg.HashingKey),
+		db:  conn,
+		ctx: ctx,
 	}
 	return s, func() { conn.Close() }
 }
@@ -70,72 +68,20 @@ func (s *store) Upsert(ctx context.Context, m models.Metrics) error {
 	return nil
 }
 
-func (s *store) Dump(ctx context.Context, metrics []models.Metrics) error {
-	// TODO: use batch inserting
-	for _, m := range metrics {
-		err := s.Upsert(ctx, m)
-		if err != nil {
-			return fmt.Errorf("failed dumping metric `%#v`. %w", m, err)
-		}
-	}
-	log.Println("Metrics dumped into PostgreSQL.")
-	return nil
-}
-
-func (s *store) Restore() ([]models.Metrics, error) {
-	metrics, err := s.getMetrics()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("Metrics restored from PostgreSQL.")
-	return metrics, nil
-}
-
 func (s *store) Get(metricType string, metricName string) (models.Metrics, error) {
 	m := models.Metrics{}
-	row := s.db.QueryRow(s.ctx, "select type, name, value, delta from metrics where type = $1 and name = $2",
-		metricType, metricName)
+
+	q := "select type, name, value, delta from metrics where type = $1 and name = $2"
+	row := s.db.QueryRow(s.ctx, q, metricType, metricName)
 	err := row.Scan(&m.MType, &m.ID, &m.Value, &m.Delta)
 	if err != nil {
 		return m, err
 	}
 
-	if len(s.hashingKey) > 0 {
-		hash, err := m.GetHash(s.hashingKey)
-		if err != nil {
-			log.Println("can't actualize hash", err)
-			return m, err
-		}
-		m.Hash = hash
-	}
-
 	return m, nil
 }
 
-func (s *store) GetAll() []models.Metrics {
-	metrics, err := s.getMetrics()
-	if err != nil {
-		log.Println("failed get metrics from Postgres", err)
-		return nil
-	}
-
-	if len(s.hashingKey) > 0 {
-		for k, m := range metrics {
-			hash, err := m.GetHash(s.hashingKey)
-			if err != nil {
-				log.Println("can't actualize hash", err)
-				break
-			}
-			m.Hash = hash
-			metrics[k] = m
-		}
-	}
-
-	return metrics
-}
-
-func (s *store) getMetrics() ([]models.Metrics, error) {
+func (s *store) GetAll() ([]models.Metrics, error) {
 	metrics := make([]models.Metrics, 0, 10)
 
 	rows, err := s.db.Query(context.Background(), "select type, name, value, delta from metrics")

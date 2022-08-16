@@ -36,15 +36,24 @@ var indexTmpl = template.Must(
 func (api *metricsAPI) getMetricsList(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/html")
 
-	err := indexTmpl.Execute(rw,
+	metrics, err := api.repo.GetAll()
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		logger.Log(r.Context()).Errorf("failed getting metrics: %v", err)
+		return
+	}
+
+	err = indexTmpl.Execute(rw,
 		struct {
 			Metrics []models.Metrics
 		}{
-			Metrics: api.repo.GetAll(),
+			Metrics: metrics,
 		})
+
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		logger.Log(r.Context()).Errorf("failed executing template: %v", err)
+		return
 	}
 }
 
@@ -52,23 +61,22 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "metricType")
 	metricName := chi.URLParam(r, "metricName")
 
-	metricValue, err := api.repo.Get(metricType, metricName)
+	m, err := api.repo.Get(metricType, metricName)
 	if err != nil {
 		rw.WriteHeader(http.StatusNotFound)
 		writeBody(r.Context(), rw, []byte(err.Error()))
 		return
 	}
 
-	var res string
-	switch metricType {
-	case models.MCounter:
-		res = strconv.FormatInt(*metricValue.Delta, 10)
-	case models.MGauge:
-		res = strconv.FormatFloat(*metricValue.Value, 'f', 3, 64)
+	strVal, err := m.GetStrVal()
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		writeBody(r.Context(), rw, []byte(err.Error()))
+		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	writeBody(r.Context(), rw, []byte(res))
+	writeBody(r.Context(), rw, []byte(strVal))
 }
 
 func (api *metricsAPI) upsertMetric(rw http.ResponseWriter, r *http.Request) {
@@ -126,19 +134,16 @@ func handleNotFound(rw http.ResponseWriter, r *http.Request) {
 func (api *metricsAPI) ping(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "text/plain")
 
-	// Добавьте хендлер GET /ping, который при запросе проверяет соединение с базой данных.
-	// При успешной проверке хендлер должен вернуть HTTP-статус 200 OK, при неуспешной — 500 Internal Server Error.
-
 	err := api.repo.Ping(r.Context())
-
-	if err == nil {
-		rw.WriteHeader(http.StatusOK)
-		writeBody(r.Context(), rw, []byte("DB connected successfully"))
-	} else {
+	if err != nil {
 		logger.Log(r.Context()).Errorf("can't connect to DB: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
 		writeBody(r.Context(), rw, []byte("DB connection failed"))
+		return
 	}
+
+	rw.WriteHeader(http.StatusOK)
+	writeBody(r.Context(), rw, []byte("DB connected successfully"))
 }
 
 func handleNotImplemented(rw http.ResponseWriter, r *http.Request) {

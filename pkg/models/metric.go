@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -23,6 +24,19 @@ type Metrics struct {
 	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 	Hash  string   `json:"hash,omitempty"`  // значение хеш-функции
+}
+
+func (m Metrics) GetStrVal() (string, error) {
+	var val string
+	switch m.MType {
+	case MGauge:
+		val = strconv.FormatFloat(*m.Value, 'f', 3, 64)
+	case MCounter:
+		val = strconv.FormatInt(*m.Delta, 10)
+	default:
+		return val, fmt.Errorf("unknown metric type `%s`", m.MType)
+	}
+	return val, nil
 }
 
 func (m Metrics) GetHash(key []byte) (string, error) {

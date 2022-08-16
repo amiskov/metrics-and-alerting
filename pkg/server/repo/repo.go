@@ -15,7 +15,7 @@ import (
 type Storage interface {
 	Ping(context.Context) error
 	Get(metricType string, metricName string) (models.Metrics, error)
-	GetAll() []models.Metrics
+	GetAll() ([]models.Metrics, error)
 	Upsert(context.Context, models.Metrics) error
 	BatchUpsert([]models.Metrics) error // TODO: add ctx
 }
@@ -37,22 +37,6 @@ func New(ctx context.Context, hashingKey []byte, s Storage) *Repo {
 	return repo
 }
 
-func (r *Repo) ActualizeHashes(metrics []models.Metrics) error {
-	if len(r.hashingKey) == 0 {
-		return errors.New("no hashing key, nothing to actualize")
-	}
-
-	for k, m := range metrics {
-		hash, err := m.GetHash(r.hashingKey)
-		if err != nil {
-			return fmt.Errorf("can't actualize hash: %w", err)
-		}
-		m.Hash = hash
-		metrics[k] = m
-	}
-	return nil
-}
-
 func (r Repo) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -60,13 +44,32 @@ func (r Repo) Ping(ctx context.Context) error {
 }
 
 func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) {
-	// TODO: add hash here
-	return r.db.Get(metricType, metricName)
+	m, err := r.db.Get(metricType, metricName)
+	if err != nil {
+		return m, err
+	}
+	if err := r.updateHash(&m); err != nil {
+		return m, err
+	}
+	return m, nil
 }
 
 // Get all metrics from inmemory storage
-func (r Repo) GetAll() []models.Metrics {
-	return r.db.GetAll()
+func (r Repo) GetAll() ([]models.Metrics, error) {
+	metrics, err := r.db.GetAll()
+	if err != nil {
+		return metrics, err
+	}
+
+	if len(r.hashingKey) > 0 {
+		for k := range metrics {
+			if err := r.updateHash(&metrics[k]); err != nil {
+				return metrics, err
+			}
+		}
+	}
+
+	return metrics, nil
 }
 
 func (r *Repo) Update(m models.Metrics) error {
@@ -113,6 +116,18 @@ func (r *Repo) updateDelta(m *models.Metrics) error {
 	currentDelta := *existingMetric.Delta
 	newDelta := currentDelta + *m.Delta
 	m.Delta = &newDelta
+	return nil
+}
+
+func (r *Repo) updateHash(m *models.Metrics) error {
+	if len(r.hashingKey) == 0 {
+		return nil
+	}
+	hash, err := m.GetHash(r.hashingKey)
+	if err != nil {
+		return fmt.Errorf("can't actualize hash: %w", err)
+	}
+	m.Hash = hash
 	return nil
 }
 

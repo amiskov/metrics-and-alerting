@@ -12,10 +12,18 @@ import (
 )
 
 func (api *metricsAPI) getMetricsListJSON(rw http.ResponseWriter, r *http.Request) {
-	jbz, err := json.Marshal(api.repo.GetAll())
+	metrics, err := api.repo.GetAll()
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		logger.Log(r.Context()).Errorf("failed getting metrics: %v", err)
+		return
+	}
+
+	jbz, err := json.Marshal(metrics)
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		logger.Log(r.Context()).Errorf("error while parsing all metrics JSON: %v", err)
+		return
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
@@ -29,6 +37,7 @@ func (api *metricsAPI) getMetricJSON(rw http.ResponseWriter, r *http.Request) {
 	body, errRead := ioutil.ReadAll(r.Body)
 	if errRead != nil {
 		logger.Log(r.Context()).Errorf("error reading request body: %v", errRead)
+		return
 	}
 
 	var reqMetric models.Metrics
