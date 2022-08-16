@@ -3,7 +3,6 @@ package updater
 
 import (
 	"context"
-	"errors"
 	"log"
 	"math/rand"
 	"runtime"
@@ -93,30 +92,13 @@ func (s *service) updateMetrics() {
 }
 
 func (s *service) updateCounter(id string) {
-	m, err := s.metrics.Get(models.MCounter, id)
-	if errors.Is(err, models.ErrorMetricNotFound) {
-		var zero int64
-		m = models.Metrics{
-			ID:    id,
-			MType: models.MCounter,
-			Delta: &zero,
-		}
+	one := int64(1)
+	m := models.Metrics{
+		ID:    id,
+		MType: models.MCounter,
+		Delta: &one, // increment by 1 in `.Update`
 	}
 
-	// if metric exists, increment its Delta
-	delta := *m.Delta + 1
-	m.Delta = &delta
-
-	// refresh metric hash if key available
-	if len(s.hashingKey) != 0 {
-		hash, err := m.GetHash(s.hashingKey)
-		if err != nil {
-			log.Printf("failed creating hash for %s: %v", id, err)
-		}
-		m.Hash = hash
-	}
-
-	// add/replace metric in storage
 	updErr := s.metrics.Update(context.Background(), m)
 	if updErr != nil {
 		log.Printf("can't update %+v\n", m)
@@ -128,14 +110,6 @@ func (s *service) updateGauge(id string, val float64) {
 		ID:    id,
 		MType: models.MGauge,
 		Value: &val,
-	}
-
-	if len(s.hashingKey) != 0 {
-		var hashingErr error
-		m.Hash, hashingErr = m.GetHash(s.hashingKey)
-		if hashingErr != nil {
-			log.Printf("failed creating hash for %s: %v", id, hashingErr)
-		}
 	}
 
 	updErr := s.metrics.Update(context.Background(), m)

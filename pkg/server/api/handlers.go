@@ -63,8 +63,9 @@ func (api *metricsAPI) getMetric(rw http.ResponseWriter, r *http.Request) {
 
 	m, err := api.repo.Get(metricType, metricName)
 	if err != nil {
+		logger.Log(r.Context()).Errorf("Metric not found. Body: %s. Error: %v.", err)
 		rw.WriteHeader(http.StatusNotFound)
-		writeBody(r.Context(), rw, []byte(err.Error()))
+		writeBody(r.Context(), rw, []byte(`Can't get metric `+err.Error()))
 		return
 	}
 

@@ -25,15 +25,19 @@ type reporter struct {
 	done           chan bool
 	reportInterval time.Duration
 	serverURL      string
+	hashingKey     []byte
 }
 
-func New(ctx context.Context, s updater, done chan bool, reportInterval time.Duration, address string) *reporter {
+func New(ctx context.Context, s updater, done chan bool,
+	reportInterval time.Duration, address string, hashingKey string,
+) *reporter {
 	return &reporter{
 		updater:        s,
 		ctx:            ctx,
 		done:           done,
 		reportInterval: reportInterval,
 		serverURL:      "http://" + address,
+		hashingKey:     []byte(hashingKey),
 	}
 }
 
@@ -57,6 +61,16 @@ func (r *reporter) runReporter(apiType int) {
 
 	for range ticker.C {
 		metrics, err := r.updater.GetMetrics()
+
+		// Actualize hashes
+		for k, m := range metrics {
+			hash, hErr := m.GetHash(r.hashingKey)
+			if hErr != nil {
+				logger.Log(r.ctx).Error("reporter: failed creating hash %v", hErr)
+				return
+			}
+			metrics[k].Hash = hash
+		}
 		if err != nil {
 			logger.Log(r.ctx).Errorf("can't get metrics: %v", err)
 			return

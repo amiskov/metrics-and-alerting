@@ -46,6 +46,10 @@ func (m Metrics) GetHash(key []byte) (string, error) {
 		return src, errors.New("hashing key is empty")
 	}
 
+	if m.Delta == nil && m.Value == nil {
+		return src, errors.New("empty delta and value")
+	}
+
 	switch m.MType {
 	case MCounter:
 		src = fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta)

@@ -23,7 +23,7 @@ func main() {
 	updater := updater.New([]byte(cfg.HashingKey))
 	go updater.Run(ctx, terminated, cfg.PollInterval)
 
-	reporter := reporter.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address)
+	reporter := reporter.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address, cfg.HashingKey)
 	go reporter.ReportWithJSON()
 
 	log.Printf("Agent started with config %+v\n.", cfg)

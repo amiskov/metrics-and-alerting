@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
@@ -45,10 +46,13 @@ func (r Repo) Ping(ctx context.Context) error {
 func (r Repo) Get(metricType string, metricName string) (models.Metrics, error) {
 	m, err := r.db.Get(metricType, metricName)
 	if err != nil {
-		return m, err
+		return m, fmt.Errorf("can't get metric with type `%s` and name `%s`: %w", m.MType, m.ID, err)
 	}
-	if err := r.updateHash(&m); err != nil {
-		return m, err
+
+	if len(r.hashingKey) > 0 {
+		if err := r.updateHash(&m); err != nil {
+			return m, fmt.Errorf("can't update hash for `%+v`: %w", m, err)
+		}
 	}
 	return m, nil
 }
@@ -73,11 +77,13 @@ func (r Repo) GetAll() ([]models.Metrics, error) {
 
 func (r *Repo) Update(m models.Metrics) error {
 	if err := r.validate(m); err != nil {
+		logger.Log(r.ctx).Error("repo: metric is invalid %v", err)
 		return err
 	}
 
 	err := r.db.Update(r.ctx, m)
 	if err != nil {
+		logger.Log(r.ctx).Error("repo: update failed %v", err)
 		return err
 	}
 
@@ -104,7 +110,7 @@ func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
 
 func (r *Repo) updateHash(m *models.Metrics) error {
 	if len(r.hashingKey) == 0 {
-		return nil
+		return fmt.Errorf("no hashing key found")
 	}
 	hash, err := m.GetHash(r.hashingKey)
 	if err != nil {
@@ -115,7 +121,7 @@ func (r *Repo) updateHash(m *models.Metrics) error {
 }
 
 func (r *Repo) checkHash(m models.Metrics) error {
-	if m.Hash == "" {
+	if len(r.hashingKey) == 0 || m.Hash == "" {
 		return nil // nothing to check
 	}
 
@@ -137,9 +143,10 @@ func (r *Repo) checkHash(m models.Metrics) error {
 	if !hmac.Equal(metricHash, seHex) {
 		return fmt.Errorf("agent and server hashes are not equal.\n"+
 			"Server key: %s\n"+
+			"`%s:%s:%d`\n"+
 			"A: %s\n"+
 			"S: %s",
-			r.hashingKey, m.Hash, serverHash)
+			r.hashingKey, m.ID, m.MType, *m.Delta, m.Hash, serverHash)
 	}
 
 	return nil
@@ -152,7 +159,7 @@ func (r *Repo) validate(incomingMetric models.Metrics) error {
 	}
 
 	// Check hash
-	if len(r.hashingKey) != 0 {
+	if len(r.hashingKey) != 0 && incomingMetric.Hash != "" {
 		return r.checkHash(incomingMetric)
 	}
 
