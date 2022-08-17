@@ -18,24 +18,24 @@ type (
 		ctx        context.Context
 		terminated chan bool
 		ticker     time.Ticker
-		source     sourcer
+		source     Sourcer
 		storage    storer
 	}
 
 	// Source of data to dump and destination to restore
-	sourcer interface {
+	Sourcer interface {
 		BulkUpdate([]models.Metrics) error
 		GetAll() ([]models.Metrics, error)
 	}
 
-	// Persistent storage
+	// Persistent storage: destination to dump and source to restore
 	storer interface {
 		ReadAll() ([]models.Metrics, error)
-		Dump(context.Context, []models.Metrics) error
+		SaveAll([]models.Metrics) error
 	}
 )
 
-func New(ctx context.Context, terminated chan bool, source sourcer, storage storer) *worker {
+func New(ctx context.Context, terminated chan bool, source Sourcer, storage storer) *worker {
 	return &worker{
 		ctx:        ctx,
 		terminated: terminated,
@@ -56,17 +56,17 @@ func (w worker) Run(shouldRestore bool, storeInterval time.Duration) {
 	// Interval saving & restoring from a file
 	if storeInterval > 0 {
 		w.ticker = *time.NewTicker(storeInterval)
-		go w.DumpPeriodically()
+		go w.dumpPeriodically()
 	}
 
-	go w.HandleTermination()
+	go w.handleTermination()
 }
 
 // Runs interval timer for saving metrics to persistent storage.
-func (w worker) DumpPeriodically() {
+func (w worker) dumpPeriodically() {
 	defer w.ticker.Stop()
 	for range w.ticker.C {
-		if err := w.save(); err != nil {
+		if err := w.dump(); err != nil {
 			logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
 		}
 		log.Println("Successfully saved to file.")
@@ -74,11 +74,11 @@ func (w worker) DumpPeriodically() {
 }
 
 // Handles program termination: stops interval saving and dumps the latest metrics snapshot.
-func (w worker) HandleTermination() {
+func (w worker) handleTermination() {
 	<-w.ctx.Done()
 	w.ticker.Stop()
 	log.Println("Saving timer stopped.")
-	if err := w.save(); err != nil {
+	if err := w.dump(); err != nil {
 		logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
 	}
 	log.Println("Successfully saved to file. Terminating.")
@@ -100,12 +100,13 @@ func (w worker) restore() error {
 	return nil
 }
 
-func (w worker) save() error {
+// Saves all data from source to storage
+func (w worker) dump() error {
 	metrics, err := w.source.GetAll()
 	if err != nil {
 		return fmt.Errorf("failed getting metrics: %w", err)
 	}
-	if err := w.storage.Dump(w.ctx, metrics); err != nil {
+	if err := w.storage.SaveAll(metrics); err != nil {
 		return fmt.Errorf("failed saving to persistent storage: %w", err)
 	}
 	return nil

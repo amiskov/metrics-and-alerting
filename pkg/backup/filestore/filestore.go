@@ -1,7 +1,6 @@
-package file
+package filestore
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +29,7 @@ func New(filePath string) (*fileStorage, closer, error) {
 	return &s, file.Close, err
 }
 
-// Decodes JSON from the file and writes it to the given `MetricsDB`.
+// Decodes JSON from the file
 func (fs *fileStorage) ReadAll() ([]models.Metrics, error) {
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
@@ -41,7 +40,7 @@ func (fs *fileStorage) ReadAll() ([]models.Metrics, error) {
 	return storedMetrics, nil
 }
 
-func (fs *fileStorage) Dump(ctx context.Context, metrics []models.Metrics) error {
+func (fs *fileStorage) SaveAll(metrics []models.Metrics) error {
 	if _, err := fs.file.Stat(); err != nil {
 		log.Println("Can't save to file:", err)
 		return err
