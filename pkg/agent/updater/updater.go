@@ -1,4 +1,4 @@
-// Package updater creates a snapshot of a running service with a bunch of metrics.
+// Package `updater` creates a snapshot of a running service with a bunch of metrics.
 package updater
 
 import (
@@ -13,43 +13,40 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
-type updater struct {
-	mx         *sync.RWMutex
-	ctx        context.Context
-	memStats   *runtime.MemStats
-	metrics    *inmem.DB
-	hashingKey []byte
+type store interface {
+	Update(m models.Metrics) error
 }
 
-func New(ctx context.Context, key []byte) *updater {
+type updater struct {
+	mx       *sync.RWMutex
+	ctx      context.Context
+	memStats *runtime.MemStats
+	metrics  store
+}
+
+func New(ctx context.Context, db *inmem.DB) *updater {
 	return &updater{
-		mx:         new(sync.RWMutex),
-		ctx:        ctx,
-		memStats:   new(runtime.MemStats),
-		metrics:    inmem.New(ctx, key),
-		hashingKey: key,
+		mx:       new(sync.RWMutex),
+		ctx:      ctx,
+		memStats: new(runtime.MemStats),
+		metrics:  db,
 	}
 }
 
+// Run the process which takes the metrics snapshot once in interval.
 func (u *updater) Run(terminated chan bool, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 
 	go func() {
 		<-u.ctx.Done()
 		ticker.Stop()
-		log.Println("Metrics update stopped.")
+		log.Println("Metrics updater stopped.")
 		terminated <- true
 	}()
 
 	for range ticker.C {
 		u.updateMetrics()
 	}
-}
-
-func (u *updater) GetMetrics() ([]models.Metrics, error) {
-	u.mx.Lock()
-	defer u.mx.Unlock()
-	return u.metrics.GetAll()
 }
 
 func (u *updater) updateMetrics() {

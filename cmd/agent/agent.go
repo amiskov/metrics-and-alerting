@@ -10,6 +10,7 @@ import (
 	"github.com/amiskov/metrics-and-alerting/pkg/agent/reporter"
 	"github.com/amiskov/metrics-and-alerting/pkg/agent/updater"
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
 func main() {
@@ -20,10 +21,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	terminated := make(chan bool, 1) // buffer of 2 for updater and reporter
 
-	updater := updater.New(ctx, []byte(cfg.HashingKey))
+	metricsDB := inmem.New(ctx, []byte(cfg.HashingKey))
+
+	updater := updater.New(ctx, metricsDB)
 	go updater.Run(terminated, cfg.PollInterval)
 
-	reporter := reporter.New(ctx, updater, terminated, cfg.ReportInterval, cfg.Address, cfg.HashingKey)
+	reporter := reporter.New(ctx, metricsDB, terminated, cfg.ReportInterval, cfg.Address, cfg.HashingKey)
 	go reporter.ReportWithJSON()
 
 	log.Printf("Agent started with config %+v\n.", cfg)
