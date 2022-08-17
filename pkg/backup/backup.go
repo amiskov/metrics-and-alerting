@@ -68,6 +68,7 @@ func (w worker) dumpPeriodically() {
 	for range w.ticker.C {
 		if err := w.dump(); err != nil {
 			logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
+			return
 		}
 		log.Println("Successfully saved to file.")
 	}
@@ -80,6 +81,8 @@ func (w worker) handleTermination() {
 	log.Println("Saving timer stopped.")
 	if err := w.dump(); err != nil {
 		logger.Log(w.ctx).Errorf("failed saved to file on termination: %v", err)
+		w.terminated <- true
+		return
 	}
 	log.Println("Successfully saved to file. Terminating.")
 	w.terminated <- true
@@ -104,10 +107,10 @@ func (w worker) restore() error {
 func (w worker) dump() error {
 	metrics, err := w.source.GetAll()
 	if err != nil {
-		return fmt.Errorf("failed getting metrics: %w", err)
+		return fmt.Errorf("backup: failed getting metrics: %w", err)
 	}
 	if err := w.storage.SaveAll(metrics); err != nil {
-		return fmt.Errorf("failed saving to persistent storage: %w", err)
+		return fmt.Errorf("backup: failed saving to persistent storage: %w", err)
 	}
 	return nil
 }
