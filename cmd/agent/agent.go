@@ -23,15 +23,13 @@ func main() {
 
 	metricsDB := inmem.New(ctx, []byte(cfg.HashingKey))
 
-	updater := updater.New(ctx, metricsDB)
-	go updater.Run(terminated, cfg.PollInterval)
+	updater := updater.New(ctx, terminated, metricsDB, cfg.PollInterval)
+	go updater.Run()
 
 	reporter := reporter.New(ctx, metricsDB, terminated, cfg.ReportInterval, cfg.Address, cfg.HashingKey)
 	go reporter.ReportWithJSON()
 
 	log.Printf("Agent started with config %+v\n.", cfg)
-	log.Printf("Sending to: %v. Poll: %v. Report: %v.\n", cfg.Address,
-		cfg.PollInterval, cfg.ReportInterval)
 
 	// Managing user signals
 	osSignalCtx, stopBySyscall := signal.NotifyContext(context.Background(),

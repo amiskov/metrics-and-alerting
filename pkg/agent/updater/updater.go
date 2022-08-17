@@ -18,30 +18,34 @@ type store interface {
 }
 
 type updater struct {
-	mx       *sync.RWMutex
-	ctx      context.Context
-	memStats *runtime.MemStats
-	metrics  store
+	mx           *sync.RWMutex
+	ctx          context.Context
+	terminated   chan bool
+	memStats     *runtime.MemStats
+	metrics      store
+	pollInterval time.Duration
 }
 
-func New(ctx context.Context, db *inmem.DB) *updater {
+func New(ctx context.Context, terminated chan bool, db *inmem.DB, pollInterval time.Duration) *updater {
 	return &updater{
-		mx:       new(sync.RWMutex),
-		ctx:      ctx,
-		memStats: new(runtime.MemStats),
-		metrics:  db,
+		mx:           new(sync.RWMutex),
+		ctx:          ctx,
+		terminated:   terminated,
+		memStats:     new(runtime.MemStats),
+		metrics:      db,
+		pollInterval: pollInterval,
 	}
 }
 
 // Run the process which takes the metrics snapshot once in interval.
-func (u *updater) Run(terminated chan bool, pollInterval time.Duration) {
-	ticker := time.NewTicker(pollInterval)
+func (u *updater) Run() {
+	ticker := time.NewTicker(u.pollInterval)
 
 	go func() {
 		<-u.ctx.Done()
 		ticker.Stop()
 		log.Println("Metrics updater stopped.")
-		terminated <- true
+		u.terminated <- true
 	}()
 
 	for range ticker.C {
