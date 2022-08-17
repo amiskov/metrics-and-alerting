@@ -25,7 +25,7 @@ func Parse() *Config {
 		Restore:       true,
 		StoreInterval: 300 * time.Second,
 		StoreFile:     "/tmp/devops-metrics-db.json",
-		LogLevel:      "warning",
+		LogLevel:      "warn",
 	}
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()

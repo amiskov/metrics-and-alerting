@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"github.com/caarlos0/env/v6"
 )
 
 type config struct {
@@ -25,12 +23,8 @@ func NewConfig() *config {
 		PollInterval:   2 * time.Second,
 		LogLevel:       "warn",
 	}
-	if err := env.Parse(&cfg); err != nil {
-		log.Fatalln("config parsing failed:", err)
-	}
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()
-
 	return &cfg
 }
 
