@@ -13,7 +13,6 @@ import (
 
 func (r *reporter) sendMetricsJSON(metrics []models.Metrics) {
 	var wg sync.WaitGroup
-
 	for _, m := range metrics {
 		m := m
 		wg.Add(1)
@@ -22,7 +21,6 @@ func (r *reporter) sendMetricsJSON(metrics []models.Metrics) {
 			r.sendMetricJSON(m)
 		}()
 	}
-
 	wg.Wait()
 }
 
@@ -45,6 +43,5 @@ func (r reporter) sendMetricJSON(m models.Metrics) {
 		return
 	}
 	defer resp.Body.Close()
-
 	log.Printf("Sent JSON %+v to `%s`.\n", string(jbz), postURL)
 }

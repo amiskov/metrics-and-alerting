@@ -12,17 +12,14 @@ import (
 
 func (r *reporter) sendMetrics(metrics []models.Metrics) {
 	var wg sync.WaitGroup
-
 	for _, m := range metrics {
 		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
 			r.sendMetric(m)
 		}()
 	}
-
 	wg.Wait()
 }
 
@@ -32,7 +29,6 @@ func (r reporter) sendMetric(m models.Metrics) {
 		logger.Log(r.ctx).Error("bad metric format: %#v", m)
 		return
 	}
-
 	postURL := r.serverURL + "/update/" + m.MType + "/" + m.ID + "/" + val
 	client := http.Client{}
 	client.Timeout = 10 * time.Second

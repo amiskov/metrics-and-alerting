@@ -57,7 +57,7 @@ func (r *reporter) runReporter(apiType int) {
 	go func() {
 		<-r.ctx.Done()
 		ticker.Stop()
-		log.Println("Metrics report stopped.")
+		log.Println("Metrics reporter stopped.")
 		r.terminated <- true
 	}()
 
