@@ -27,7 +27,8 @@ func main() {
 
 	repo := repo.New(appCtx, []byte(envCfg.HashingKey), storage)
 
-	if envCfg.StoreFile != "" {
+	// Run backup to file (if needed) only for inmemory storage
+	if envCfg.StoreFile != "" && envCfg.PgDSN == "" {
 		terminated := make(chan bool)
 		initBackupToFile(appCtx, storage, terminated, envCfg)
 		go func() {
