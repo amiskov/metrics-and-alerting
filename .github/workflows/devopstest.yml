@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - inc13
+      - main
 
 jobs:
 
@@ -384,3 +384,33 @@ jobs:
         run: |
           devopstest -test.v -test.run=^TestIteration13$ \
             -source-path=.
+
+# XIV. Задание к четыринадцатому инкременту.
+# Агент:
+# Перепланируйте архитектуру агента таким образом,
+# что бы сбор метрик (опрос runtime) и их отправка осуществлялись в разных горутинах.
+# Добавьте еще одну горутину которая бы собирала дополнительные метрики
+# (с использованием пакета https://github.com/shirou/gopsutil)
+#   * Имя метрики: "TotalMemory", тип: gauge - общее количество памяти
+#   * Имя метрики: "FreeMemory", тип: gauge - общее количество свободной памяти
+#   * Имя метрики: "CPUutilization1", тип: gauge - загрузка ядра в процентах за 10 секунд (точное количество - по числу CPU определяемое во время исполнения)
+
+      - name: "Code increment #14"
+        if: always()
+        run: |
+          SERVER_PORT=$(random unused-port)
+          ADDRESS="localhost:${SERVER_PORT}"
+          TEMP_FILE=$(random tempfile)
+          devopstest -test.v -test.run=^TestIteration14$ \
+            -source-path=. \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -server-port=$SERVER_PORT \
+            -file-storage-path=$TEMP_FILE \
+            -database-dsn='postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable' \
+            -key="${TEMP_FILE}"
+
+      - name: "Code increment #14 (race detection)"
+        if: always()
+        run: |
+          go test -v -race ./...
