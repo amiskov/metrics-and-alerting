@@ -22,13 +22,13 @@ type store interface {
 type reporter struct {
 	metrics        store
 	ctx            context.Context
-	terminated     chan bool
+	terminated     chan<- bool
 	reportInterval time.Duration
 	serverURL      string
 	hashingKey     []byte
 }
 
-func New(ctx context.Context, db store, terminated chan bool,
+func New(ctx context.Context, db store, terminated chan<- bool,
 	reportInterval time.Duration, address string, hashingKey string,
 ) *reporter {
 	return &reporter{

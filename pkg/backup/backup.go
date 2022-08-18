@@ -16,7 +16,7 @@ type (
 	// It dumps metrics intervally from a `sourcer` to a `storer`.
 	worker struct {
 		ctx        context.Context
-		terminated chan bool
+		terminated chan<- bool
 		ticker     time.Ticker
 		source     Sourcer
 		storage    storer
@@ -35,7 +35,7 @@ type (
 	}
 )
 
-func New(ctx context.Context, terminated chan bool, source Sourcer, storage storer) *worker {
+func New(ctx context.Context, terminated chan<- bool, source Sourcer, storage storer) *worker {
 	return &worker{
 		ctx:        ctx,
 		terminated: terminated,

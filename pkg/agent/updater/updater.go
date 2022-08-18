@@ -20,13 +20,13 @@ type store interface {
 type updater struct {
 	mx           *sync.RWMutex
 	ctx          context.Context
-	terminated   chan bool
+	terminated   chan<- bool
 	memStats     *runtime.MemStats
 	metrics      store
 	pollInterval time.Duration
 }
 
-func New(ctx context.Context, terminated chan bool, db *inmem.DB, pollInterval time.Duration) *updater {
+func New(ctx context.Context, terminated chan<- bool, db *inmem.DB, pollInterval time.Duration) *updater {
 	return &updater{
 		mx:           new(sync.RWMutex),
 		ctx:          ctx,
