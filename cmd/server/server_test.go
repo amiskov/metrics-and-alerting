@@ -2,13 +2,14 @@ package main_test
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amiskov/metrics-and-alerting/cmd/server/api"
-	"github.com/amiskov/metrics-and-alerting/cmd/server/store"
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/api"
+	"github.com/amiskov/metrics-and-alerting/pkg/server/repo"
+	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
 
 func TestUpdateMetric(t *testing.T) {
@@ -78,24 +79,15 @@ func TestUpdateMetric(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			ctx, cancel := context.WithCancel(context.Background())
-			finished := make(chan bool)
 			defer cancel()
 
-			storage, closeFile, err := store.New(&store.Cfg{
-				Ctx:       ctx,
-				Finished:  finished,
-				StoreFile: "",
-				Restore:   false,
-			})
-			if err != nil {
-				log.Fatalln("Creating server store failed.", err)
-			}
-			defer func() {
-				if err := closeFile(); err != nil {
-					log.Println("failed closing file storage:", err)
-				}
-			}()
-			metricsAPI := api.New(storage)
+			hashingKey := []byte("secret")
+
+			storage := inmem.New(ctx, hashingKey)
+			repo := repo.New(ctx, hashingKey, storage)
+
+			loggingMiddleware := logger.NewLoggingMiddleware(logger.Run("debug"))
+			metricsAPI := api.New(repo, loggingMiddleware)
 			metricsAPI.Router.ServeHTTP(w, request)
 
 			res := w.Result()

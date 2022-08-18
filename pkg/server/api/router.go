@@ -5,10 +5,16 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-func (api *metricsAPI) mountHandlers() {
+func (api *metricsAPI) mountHandlers(l LoggerMiddleware) {
+	// add tracing info to request context for better analyzing async call chains
+	api.Router.Use(l.SetupTracing)
+	// add tracing-aware logger to context
+	api.Router.Use(l.SetupLogging)
+	// log context dependant request information
+	api.Router.Use(l.AccessLog)
+
 	api.Router.Use(middleware.RequestID)
 	api.Router.Use(middleware.RealIP)
-	api.Router.Use(middleware.Logger)
 	api.Router.Use(middleware.Recoverer)
 	respTypes := []string{
 		"application/javascript",
@@ -34,6 +40,8 @@ func (api *metricsAPI) mountHandlers() {
 
 	api.Router.Route("/", func(r chi.Router) {
 		r.Get("/", api.getMetricsList)
+		r.Post("/updates/", api.bulkUpdateMetrics)
+		r.Get("/ping", api.ping)
 		r.Get("/j", api.getMetricsListJSON)
 		r.Post("/*", handleNotFound)
 	})

@@ -8,31 +8,38 @@ import (
 	"time"
 )
 
-type config struct {
+type Config struct {
 	Address       string
 	StoreInterval time.Duration
 	StoreFile     string
 	Restore       bool
+	HashingKey    string
+	PgDSN         string
+	LogLevel      string
 }
 
-func Parse() *config {
-	cfg := config{
+func Parse() *Config {
+	cfg := Config{
 		// Defaults
 		Address:       "localhost:8080",
 		Restore:       true,
 		StoreInterval: 300 * time.Second,
 		StoreFile:     "/tmp/devops-metrics-db.json",
+		LogLevel:      "warn",
 	}
 	cfg.updateFromFlags()
 	cfg.updateFromEnv()
 	return &cfg
 }
 
-func (cfg *config) updateFromFlags() {
+func (cfg *Config) updateFromFlags() {
 	flagAddress := flag.String("a", cfg.Address, "Server address.")
 	flagRestore := flag.Bool("r", cfg.Restore, "Should server restore metrics from file on start?")
 	flagStoreInterval := flag.Duration("i", cfg.StoreInterval, "Report interval in seconds.")
 	flagStoreFile := flag.String("f", cfg.StoreFile, "File to store metrics.")
+	flagHashingKey := flag.String("k", cfg.HashingKey, "Hashing key.")
+	flagPgDSN := flag.String("d", cfg.PgDSN, "Postgres DSN.")
+	flagLogLevel := flag.String("ll", cfg.PgDSN, "Minimal logging level: debug, info, warn, error, dpanic, panic, fatal.")
 
 	flag.Parse()
 
@@ -40,9 +47,12 @@ func (cfg *config) updateFromFlags() {
 	cfg.Restore = *flagRestore
 	cfg.StoreInterval = *flagStoreInterval
 	cfg.StoreFile = *flagStoreFile
+	cfg.HashingKey = *flagHashingKey
+	cfg.PgDSN = *flagPgDSN // priority is higher than `flagStoreFile`
+	cfg.LogLevel = *flagLogLevel
 }
 
-func (cfg *config) updateFromEnv() {
+func (cfg *Config) updateFromEnv() {
 	if addr, ok := os.LookupEnv("ADDRESS"); ok {
 		cfg.Address = addr
 	}
@@ -62,5 +72,14 @@ func (cfg *config) updateFromEnv() {
 			log.Fatalf("Can't parse %s env var: %s", intervalEnv, err.Error())
 		}
 		cfg.StoreInterval = storeInterval
+	}
+	if hashingKey, ok := os.LookupEnv("KEY"); ok {
+		cfg.HashingKey = hashingKey
+	}
+	if dsn, ok := os.LookupEnv("DATABASE_DSN"); ok {
+		cfg.PgDSN = dsn
+	}
+	if ll, ok := os.LookupEnv("LOG_LEVEL"); ok {
+		cfg.LogLevel = ll
 	}
 }

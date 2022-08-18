@@ -1,4 +1,4 @@
-package api
+package reporter
 
 import (
 	"bytes"
@@ -8,26 +8,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amiskov/metrics-and-alerting/internal/models"
+	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
-func (a *api) sendMetricsJSON() {
+func (r *reporter) sendMetricsJSON(metrics []models.Metrics) {
 	var wg sync.WaitGroup
-
-	for _, m := range a.updater.GetMetrics() {
+	for _, m := range metrics {
 		m := m
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sendMetricJSON(a.serverURL, m)
+			r.sendMetricJSON(m)
 		}()
 	}
-
 	wg.Wait()
 }
 
-func sendMetricJSON(sendURL string, m models.Metrics) {
-	postURL := sendURL + "/update/"
+func (r reporter) sendMetricJSON(m models.Metrics) {
+	postURL := r.serverURL + "/update/"
 	contentType := "Content-Type: application/json"
 
 	client := http.Client{}
@@ -36,6 +34,7 @@ func sendMetricJSON(sendURL string, m models.Metrics) {
 	jbz, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("Error marshaling JSON: %+v", err)
+		return
 	}
 
 	resp, errPost := client.Post(postURL, contentType, bytes.NewBuffer(jbz))
@@ -44,6 +43,5 @@ func sendMetricJSON(sendURL string, m models.Metrics) {
 		return
 	}
 	defer resp.Body.Close()
-
 	log.Printf("Sent JSON %+v to `%s`.\n", string(jbz), postURL)
 }
