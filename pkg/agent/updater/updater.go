@@ -9,6 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+
+	"github.com/amiskov/metrics-and-alerting/pkg/logger"
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 	"github.com/amiskov/metrics-and-alerting/pkg/storage/inmem"
 )
@@ -22,16 +26,23 @@ type updater struct {
 	ctx          context.Context
 	terminated   chan<- bool
 	memStats     *runtime.MemStats
+	vMemStat     *mem.VirtualMemoryStat
 	metrics      store
 	pollInterval time.Duration
 }
 
 func New(ctx context.Context, terminated chan<- bool, db *inmem.DB, pollInterval time.Duration) *updater {
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		logger.Log(ctx).Fatal("can't create virtual memory stats object: %v", err)
+	}
+
 	return &updater{
 		mx:           new(sync.RWMutex),
 		ctx:          ctx,
 		terminated:   terminated,
 		memStats:     new(runtime.MemStats),
+		vMemStat:     vMem,
 		metrics:      db,
 		pollInterval: pollInterval,
 	}
@@ -90,6 +101,14 @@ func (u *updater) updateMetrics() {
 	u.updateCounter("PollCount")
 
 	u.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
+
+	u.updateGauge("TotalMemory", float64(u.vMemStat.Total))
+	u.updateGauge("FreeMemory", float64(u.vMemStat.Free))
+	if cpu, err := cpu.Percent(0, true); err != nil {
+		logger.Log(u.ctx).Error("failed getting CPU info: %v", err)
+	} else {
+		u.updateGauge("CPUutilization1", cpu[1])
+	}
 
 	log.Println("Metrics has been updated.")
 }
