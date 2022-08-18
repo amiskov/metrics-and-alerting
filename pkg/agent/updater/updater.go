@@ -36,7 +36,6 @@ func New(ctx context.Context, terminated chan<- bool, db *inmem.DB, pollInterval
 	if err != nil {
 		logger.Log(ctx).Fatal("can't create virtual memory stats object: %v", err)
 	}
-
 	return &updater{
 		mx:           new(sync.RWMutex),
 		ctx:          ctx,
