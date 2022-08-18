@@ -102,7 +102,7 @@ func (u *updater) updateMetrics() {
 	u.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
 
 	u.updateGauge("TotalMemory", float64(u.vMemStat.Total))
-	u.updateGauge("FreeMemory", float64(u.vMemStat.Free))
+	u.updateGauge("FreeMemory", float64(u.vMemStat.Available))
 	if cpu, err := cpu.Percent(0, true); err != nil {
 		logger.Log(u.ctx).Error("failed getting CPU info: %v", err)
 	} else {
