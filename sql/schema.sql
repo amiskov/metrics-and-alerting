@@ -7,7 +7,7 @@ CREATE TABLE metrics (
   type metric_type NOT NULL, 
   name VARCHAR(128) UNIQUE NOT NULL,
   value DOUBLE PRECISION,
-  delta BIGINT,
+  delta BIGINT
   -- make sure we store only 1 number (add more fields if necessary)
-  CHECK ((value IS NOT NULL)::INTEGER + (delta IS NOT NULL)::INTEGER = 1)
+  -- CHECK ((value IS NOT NULL)::INTEGER + (delta IS NOT NULL)::INTEGER = 1)
 );
