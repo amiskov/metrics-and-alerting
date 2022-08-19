@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -22,26 +21,18 @@ type store interface {
 }
 
 type updater struct {
-	mx           *sync.RWMutex
 	ctx          context.Context
 	terminated   chan<- bool
 	memStats     *runtime.MemStats
-	vMemStat     *mem.VirtualMemoryStat
 	metrics      store
 	pollInterval time.Duration
 }
 
 func New(ctx context.Context, terminated chan<- bool, db *inmem.DB, pollInterval time.Duration) *updater {
-	vMem, err := mem.VirtualMemory()
-	if err != nil {
-		logger.Log(ctx).Fatal("can't create virtual memory stats object: %v", err)
-	}
 	return &updater{
-		mx:           new(sync.RWMutex),
 		ctx:          ctx,
 		terminated:   terminated,
 		memStats:     new(runtime.MemStats),
-		vMemStat:     vMem,
 		metrics:      db,
 		pollInterval: pollInterval,
 	}
@@ -66,8 +57,10 @@ func (u *updater) Run() {
 func (u *updater) updateMetrics() {
 	runtime.ReadMemStats(u.memStats)
 
-	u.mx.Lock()
-	defer u.mx.Unlock()
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		logger.Log(u.ctx).Fatal("can't create virtual memory stats object: %v", err)
+	}
 
 	u.updateGauge("Alloc", float64(u.memStats.Alloc))
 	u.updateGauge("BuckHashSys", float64(u.memStats.BuckHashSys))
@@ -101,7 +94,7 @@ func (u *updater) updateMetrics() {
 
 	u.updateGauge("RandomValue", rand.Float64()) // nolint: gosec
 
-	u.updateGauge("TotalMemory", float64(u.vMemStat.Total))
+	u.updateGauge("TotalMemory", float64(vMem.Total))
 	u.updateGauge("FreeMemory", rand.Float64())
 	if cpu, err := cpu.Percent(0, true); err != nil {
 		logger.Log(u.ctx).Error("failed getting CPU info: %v", err)
