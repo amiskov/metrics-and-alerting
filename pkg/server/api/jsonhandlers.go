@@ -86,8 +86,14 @@ func (api *metricsAPI) bulkUpdateMetrics(rw http.ResponseWriter, r *http.Request
 	}
 
 	err := api.repo.BulkUpdate(metrics)
+	if errors.Is(err, models.ErrorPartialUpdate) {
+		logger.Log(r.Context()).Errorf("partial update, some metrics are invalid `%v`", err)
+		rw.WriteHeader(http.StatusPartialContent)
+		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorPartialUpdate.Error()+`"}`))
+		return
+	}
 	if err != nil {
-		logger.Log(r.Context()).Errorf("bulk update failed \n`%s`\n error: %v. URL is: %s", body, err, r.URL)
+		logger.Log(r.Context()).Errorf("bulk update failed: %v", body)
 		rw.WriteHeader(http.StatusBadRequest)
 		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorBadMetricFormat.Error()+`"}`))
 		return

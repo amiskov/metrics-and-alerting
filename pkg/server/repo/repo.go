@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
@@ -87,17 +88,27 @@ func (r *Repo) Update(m models.Metrics) error {
 	return nil
 }
 
+// Updates valid metrics, skips invalid.
 func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
-	// Reject operation if invalid metric found.
-	// Probably it's better just skip invalid?
+	validMetrics := []models.Metrics{}
+	invalidMetricsIDs := []string{}
+
 	for _, m := range metrics {
-		if err := r.validate(m); err != nil {
-			return err
+		err := r.validate(m)
+		if err != nil {
+			invalidMetricsIDs = append(invalidMetricsIDs, m.ID)
+			continue
 		}
+		validMetrics = append(validMetrics, m)
 	}
 
-	if err := r.db.BulkUpdate(metrics); err != nil {
+	if err := r.db.BulkUpdate(validMetrics); err != nil {
 		return fmt.Errorf("repo: bulk update failed: %w", err)
+	}
+
+	if len(invalidMetricsIDs) > 0 {
+		ids := strings.Join(invalidMetricsIDs, ", ")
+		return fmt.Errorf("repo: partial bulk update, invalid metric ids: %s. %w", ids, models.ErrorPartialUpdate)
 	}
 
 	return nil
