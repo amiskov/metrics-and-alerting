@@ -108,7 +108,7 @@ func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
 
 	if len(invalidMetricsIDs) > 0 {
 		ids := strings.Join(invalidMetricsIDs, ", ")
-		return fmt.Errorf("repo: partial bulk update, invalid metric ids: %s. %w", ids, models.ErrorPartialUpdate)
+		return fmt.Errorf("repo: some metrics are invalid: %s. %w", ids, models.ErrorPartialUpdate)
 	}
 
 	return nil

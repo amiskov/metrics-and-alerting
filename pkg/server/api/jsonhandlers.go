@@ -89,7 +89,7 @@ func (api *metricsAPI) bulkUpdateMetrics(rw http.ResponseWriter, r *http.Request
 	if errors.Is(err, models.ErrorPartialUpdate) {
 		logger.Log(r.Context()).Errorf("partial update, some metrics are invalid `%v`", err)
 		rw.WriteHeader(http.StatusPartialContent)
-		writeBody(r.Context(), rw, []byte(`{"error":"`+models.ErrorPartialUpdate.Error()+`"}`))
+		writeBody(r.Context(), rw, []byte(`{"error":"`+err.Error()+`"}`))
 		return
 	}
 	if err != nil {
