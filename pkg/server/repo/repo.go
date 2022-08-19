@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
@@ -21,7 +20,6 @@ type Storage interface {
 }
 
 type Repo struct {
-	mx         *sync.Mutex
 	ctx        context.Context
 	hashingKey []byte
 	db         Storage
@@ -29,7 +27,6 @@ type Repo struct {
 
 func New(ctx context.Context, hashingKey []byte, s Storage) *Repo {
 	repo := &Repo{
-		mx:         new(sync.Mutex),
 		ctx:        ctx,
 		hashingKey: hashingKey,
 		db:         s,
