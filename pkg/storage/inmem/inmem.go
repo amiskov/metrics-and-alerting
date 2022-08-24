@@ -11,7 +11,7 @@ import (
 
 type DB struct {
 	ctx        context.Context
-	mx         *sync.Mutex
+	mx         *sync.RWMutex
 	data       map[string]models.Metrics // string is `type+name`
 	hashingKey []byte
 }
@@ -19,7 +19,7 @@ type DB struct {
 func New(ctx context.Context, key []byte) *DB {
 	return &DB{
 		ctx:        ctx,
-		mx:         new(sync.Mutex),
+		mx:         new(sync.RWMutex),
 		data:       make(map[string]models.Metrics),
 		hashingKey: key,
 	}
@@ -30,9 +30,9 @@ func (mdb DB) Ping(ctx context.Context) error {
 }
 
 func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) {
-	mdb.mx.Lock()
+	mdb.mx.RLock()
+	defer mdb.mx.RUnlock()
 	metric, ok := mdb.data[metricType+metricName]
-	mdb.mx.Unlock()
 
 	if !ok {
 		return metric, models.ErrorMetricNotFound
@@ -43,8 +43,8 @@ func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) 
 
 // Get all metrics from inmemory storage
 func (mdb DB) GetAll() ([]models.Metrics, error) {
-	mdb.mx.Lock()
-	defer mdb.mx.Unlock()
+	mdb.mx.RLock()
+	defer mdb.mx.RUnlock()
 
 	metrics := []models.Metrics{}
 	for _, m := range mdb.data {

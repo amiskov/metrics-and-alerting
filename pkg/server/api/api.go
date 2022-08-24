@@ -16,7 +16,7 @@ type Repo interface {
 	Get(metricType string, metricName string) (models.Metrics, error)
 	GetAll() ([]models.Metrics, error)
 	Update(models.Metrics) error
-	BulkUpdate([]models.Metrics) error
+	BulkUpdate([]models.Metrics) (int, error)
 }
 
 type metricsAPI struct {

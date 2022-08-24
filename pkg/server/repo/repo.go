@@ -5,7 +5,7 @@ import (
 	"crypto/hmac"
 	"encoding/hex"
 	"fmt"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/amiskov/metrics-and-alerting/pkg/logger"
@@ -21,7 +21,6 @@ type Storage interface {
 }
 
 type Repo struct {
-	mx         *sync.Mutex
 	ctx        context.Context
 	hashingKey []byte
 	db         Storage
@@ -29,7 +28,6 @@ type Repo struct {
 
 func New(ctx context.Context, hashingKey []byte, s Storage) *Repo {
 	repo := &Repo{
-		mx:         new(sync.Mutex),
 		ctx:        ctx,
 		hashingKey: hashingKey,
 		db:         s,
@@ -90,20 +88,30 @@ func (r *Repo) Update(m models.Metrics) error {
 	return nil
 }
 
-func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
-	// Reject operation if invalid metric found.
-	// Probably it's better just skip invalid?
+// Updates valid metrics, skips invalid.
+func (r *Repo) BulkUpdate(metrics []models.Metrics) (int, error) {
+	validMetrics := []models.Metrics{}
+	invalidMetricsIDs := []string{}
+
 	for _, m := range metrics {
-		if err := r.validate(m); err != nil {
-			return err
+		err := r.validate(m)
+		if err != nil {
+			invalidMetricsIDs = append(invalidMetricsIDs, m.ID)
+			continue
 		}
+		validMetrics = append(validMetrics, m)
 	}
 
-	if err := r.db.BulkUpdate(metrics); err != nil {
-		return fmt.Errorf("repo: bulk update failed: %w", err)
+	if err := r.db.BulkUpdate(validMetrics); err != nil {
+		return len(validMetrics), fmt.Errorf("repo: bulk update failed: %w", err)
 	}
 
-	return nil
+	if len(invalidMetricsIDs) > 0 {
+		ids := strings.Join(invalidMetricsIDs, ", ")
+		return len(validMetrics), fmt.Errorf("repo: some metrics are invalid: %s. %w", ids, models.ErrorPartialUpdate)
+	}
+
+	return len(validMetrics), nil
 }
 
 // ============ Not exported

@@ -7,11 +7,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/amiskov/metrics-and-alerting/pkg/models"
 )
 
 type fileStorage struct {
+	mx   *sync.RWMutex
 	file *os.File
 }
 
@@ -23,6 +25,7 @@ func New(filePath string) (*fileStorage, closer, error) {
 		return nil, nil, err
 	}
 	s := fileStorage{
+		mx:   new(sync.RWMutex),
 		file: file,
 	}
 	log.Printf("Using `%s` as a storage.\n", file.Name())
@@ -31,6 +34,9 @@ func New(filePath string) (*fileStorage, closer, error) {
 
 // Decodes JSON from the file
 func (fs *fileStorage) ReadAll() ([]models.Metrics, error) {
+	fs.mx.RLock()
+	defer fs.mx.RUnlock()
+
 	storedMetrics := []models.Metrics{}
 	dec := json.NewDecoder(fs.file)
 	err := dec.Decode(&storedMetrics)
@@ -41,6 +47,9 @@ func (fs *fileStorage) ReadAll() ([]models.Metrics, error) {
 }
 
 func (fs *fileStorage) SaveAll(metrics []models.Metrics) error {
+	fs.mx.Lock()
+	defer fs.mx.Unlock()
+
 	if _, err := fs.file.Stat(); err != nil {
 		log.Println("Can't save to file:", err)
 		return err

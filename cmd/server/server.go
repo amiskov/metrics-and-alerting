@@ -68,7 +68,7 @@ func initStorage(ctx context.Context, cfg *config.Config) (repo.Storage, func())
 	return db, func() {}
 }
 
-func initBackupToFile(ctx context.Context, db backup.Sourcer, terminated chan bool, cfg *config.Config) func() {
+func initBackupToFile(ctx context.Context, db backup.Sourcer, terminated chan<- bool, cfg *config.Config) func() {
 	storeToBackup, closeFile, err := filestore.New(cfg.StoreFile)
 	if err != nil {
 		logger.Log(ctx).Errorf("main: failed creating file storage: %s", err.Error())
