@@ -89,7 +89,7 @@ func (r *Repo) Update(m models.Metrics) error {
 }
 
 // Updates valid metrics, skips invalid.
-func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
+func (r *Repo) BulkUpdate(metrics []models.Metrics) (int, error) {
 	validMetrics := []models.Metrics{}
 	invalidMetricsIDs := []string{}
 
@@ -103,15 +103,15 @@ func (r *Repo) BulkUpdate(metrics []models.Metrics) error {
 	}
 
 	if err := r.db.BulkUpdate(validMetrics); err != nil {
-		return fmt.Errorf("repo: bulk update failed: %w", err)
+		return len(validMetrics), fmt.Errorf("repo: bulk update failed: %w", err)
 	}
 
 	if len(invalidMetricsIDs) > 0 {
 		ids := strings.Join(invalidMetricsIDs, ", ")
-		return fmt.Errorf("repo: some metrics are invalid: %s. %w", ids, models.ErrorPartialUpdate)
+		return len(validMetrics), fmt.Errorf("repo: some metrics are invalid: %s. %w", ids, models.ErrorPartialUpdate)
 	}
 
-	return nil
+	return len(validMetrics), nil
 }
 
 // ============ Not exported

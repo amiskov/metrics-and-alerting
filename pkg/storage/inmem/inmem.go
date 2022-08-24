@@ -31,8 +31,8 @@ func (mdb DB) Ping(ctx context.Context) error {
 
 func (mdb DB) Get(metricType string, metricName string) (models.Metrics, error) {
 	mdb.mx.RLock()
+	defer mdb.mx.RUnlock()
 	metric, ok := mdb.data[metricType+metricName]
-	mdb.mx.RUnlock()
 
 	if !ok {
 		return metric, models.ErrorMetricNotFound
