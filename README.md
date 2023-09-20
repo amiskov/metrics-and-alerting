@@ -1,16 +1,34 @@
+# Сбор и отправка метрик
+Сбор рантайм-метрик (`cmd/agent`) с отправкой на сервер (`cmd/server`) по HTTP. Есть поддержка GZIP и простейшее шифрование.
+
 ## Сервер
 Сервер может хранить данные в памяти и в Постгресе.
 
 На сервере можно запустить механизм бэкапа из хранилища, он реализует задание по сохранению в файл. Бэкап не зависит от типа хранилища и может работать как с inmemory-базой так и с Постгресом.
 
+Пример запуска (параметры описаны в `cmd/server/config/config.go`):
+
+```sh
+LOG_LEVEL=debug \
+STORE_FILE=db.json \
+KEY=secret \
+STORE_INTERVAL=0s \
+DATABASE_DSN=postgresql://localhost/praktikum_metrics \
+go run cmd/server/server.go
+```
+
 ## Агент
 Агент хранит метрики в inmemory-базе и периодически отсылает их на сервер.
 
-## go-musthave-devops-tpl
+Пример запуска (параметры см. `cmd/agent/config/config.go`):
 
-testing 10
-
-Шаблон репозитория для практического трека «Go в DevOps».
+```sh
+POLL_INTERVAL=1s \
+LOG_LEVEL=debug \
+KEY=secret \
+REPORT_INTERVAL=2s \
+go run cmd/agent/agent.go
+```
 
 ## Начало работы
 
